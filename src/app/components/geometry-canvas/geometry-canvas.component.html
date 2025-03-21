@@ -1,0 +1,13 @@
+<div>
+    <button mat-raised-button (click)="setMode('draw')" [color]="mode === 'draw' ? 'primary' : ''">Draw</button>
+    <button mat-raised-button (click)="setMode('edit')" [color]="mode === 'edit' ? 'primary' : ''">Edit</button>
+    <button mat-raised-button (click)="setMode('delete')" [color]="mode === 'delete' ? 'warn' : ''">Delete</button>
+
+    <mat-button-toggle-group *ngIf="mode === 'draw'" [(ngModel)]="drawingType" (ngModelChange)="setDrawingType($event)">
+        <mat-button-toggle value="point">Point</mat-button-toggle>
+        <mat-button-toggle value="line">Line</mat-button-toggle>
+        <mat-button-toggle value="polygon">Polygon</mat-button-toggle>
+    </mat-button-toggle-group>
+
+    <canvas #canvas width="800" height="600" style="border: 1px solid black;"></canvas>
+</div>
