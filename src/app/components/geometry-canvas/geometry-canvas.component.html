@@ -1,37 +1,34 @@
-<div class="main-container">
-    <section class="buttons-container">
+<section class="buttons-container">
 
-        <button mat-raised-button (click)="toggleDraw()"  [class.selected-button]="mode === 'draw'">
-            <mat-icon>brush</mat-icon>
-            <span>Desenhar</span>
-        </button>
-        <button mat-raised-button (click)="setMode('edit')" *ngIf="mode !== 'draw'"
-            [class.selected-button]="mode === 'edit'">
-            <mat-icon>edit_note</mat-icon>
-            <span>Editar</span>
-        </button>
-        <button mat-raised-button (click)="setMode('delete')" *ngIf="mode !== 'draw'"
-            [class.selected-button]="mode === 'delete'">
-            <mat-icon>delete</mat-icon>
-            <span>Deletar</span>
-        </button>
+    <button mat-raised-button (click)="toggleDraw()" [class.selected-button]="mode === 'draw'">
+        <mat-icon>brush</mat-icon>
+        <span>Desenhar</span>
+    </button>
+    <button mat-raised-button (click)="setMode('edit')" *ngIf="mode !== 'draw'"
+        [class.selected-button]="mode === 'edit'">
+        <mat-icon>edit_note</mat-icon>
+        <span>Editar</span>
+    </button>
+    <button mat-raised-button (click)="setMode('delete')" *ngIf="mode !== 'draw'"
+        [class.selected-button]="mode === 'delete'">
+        <mat-icon>delete</mat-icon>
+        <span>Deletar</span>
+    </button>
 
-        <mat-button-toggle-group *ngIf="mode === 'draw'" [(ngModel)]="drawingType"
-            (ngModelChange)="setDrawingType($event)">
-            <mat-button-toggle value="point">
-                <mat-icon>fiber_manual_record</mat-icon>
-                <span>Ponto</span>
-            </mat-button-toggle>
-            <mat-button-toggle value="line">
-                <mat-icon>horizontal_rule</mat-icon>
-                <span>Linha</span>
-            </mat-button-toggle>
-            <mat-button-toggle value="polygon">
-                <mat-icon>timeline</mat-icon>
-                <span>Polígono</span>
-            </mat-button-toggle>
-        </mat-button-toggle-group>
-    </section>
+    <mat-button-toggle-group *ngIf="mode === 'draw'" [(ngModel)]="drawingType" (ngModelChange)="setDrawingType($event)">
+        <mat-button-toggle value="point">
+            <mat-icon>fiber_manual_record</mat-icon>
+            <span>Ponto</span>
+        </mat-button-toggle>
+        <mat-button-toggle value="line">
+            <mat-icon>horizontal_rule</mat-icon>
+            <span>Linha</span>
+        </mat-button-toggle>
+        <mat-button-toggle value="polygon">
+            <mat-icon>timeline</mat-icon>
+            <span>Polígono</span>
+        </mat-button-toggle>
+    </mat-button-toggle-group>
+</section>
 
-    <canvas #canvas></canvas>
-</div>
+<canvas #canvas></canvas>

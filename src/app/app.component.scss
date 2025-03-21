@@ -8,9 +8,10 @@
 
 .app-title {
   margin: 0;
-  padding: 10px;
-  background-color: #333;
-  color: white;
+  padding: 0.5rem;
+  background-color: var(--mat-sys-secondary);
+  border-bottom: 1px solid var(--mat-sys-on-surface);
+  color: var(--mat-sys-on-secondary);
 }
 
 .map-wrapper {
