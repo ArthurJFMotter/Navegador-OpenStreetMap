@@ -6,12 +6,14 @@ import {
   AfterViewInit,
   OnDestroy,
   HostListener,
-  Renderer2
+  Renderer2,
+  Input
 } from '@angular/core';
-import { GeometryService, Geometry } from '../../services/geometry.service';
+import { GeometryService } from '../../services/geometry.service';
 import { Subscription } from 'rxjs';
 import { MatDialog } from '@angular/material/dialog';
 import { GeometryDialogComponent } from '../geometry-dialog/geometry-dialog.component';
+import { GeometryViewModel } from '../../models/geometry.model';
 
 type Mode = 'draw' | 'edit' | 'delete' | 'none';
 
@@ -24,11 +26,12 @@ type Mode = 'draw' | 'edit' | 'delete' | 'none';
 export class GeometryCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('canvas', { static: true }) canvasRef!: ElementRef<HTMLCanvasElement>;
   private ctx!: CanvasRenderingContext2D | null;
-  private geometries: Geometry[] = [];
+  private geometries: GeometryViewModel[] = [];
   private geometrySubscription!: Subscription;
-  private selectedGeometry: Geometry | null = null;
+  private selectedGeometry: GeometryViewModel | null = null;
   mode: Mode = 'none';
   drawingType: 'point' | 'line' | 'polygon' = 'point';
+
   private isDrawing = false;
   private tempCoordinates: number[][] = [];
   private previewCoordinates: number[][] = [];
@@ -36,10 +39,11 @@ export class GeometryCanvasComponent implements OnInit, AfterViewInit, OnDestroy
   private scaleY = 1;  // Scaling factor for Y
   canvasWidth = 800;
   canvasHeight = 600;
+  @Input() editingGeometryId: string | null = null;
 
   constructor(
-    private geometryService: GeometryService, 
-    private dialog: MatDialog, 
+    private geometryService: GeometryService,
+    private dialog: MatDialog,
     private renderer: Renderer2) { }
 
   ngOnInit(): void {
@@ -101,13 +105,13 @@ export class GeometryCanvasComponent implements OnInit, AfterViewInit, OnDestroy
   onClick(event: MouseEvent): void {
     if (this.mode === 'delete') {
       const rect = this.canvasRef.nativeElement.getBoundingClientRect();
-      const x = (event.clientX - rect.left) * this.scaleX; 
+      const x = (event.clientX - rect.left) * this.scaleX;
       const y = (event.clientY - rect.top) * this.scaleY;
 
       for (const geometry of this.geometries) {
         for (const coord of geometry.coordinates) {
           const distance = Math.sqrt((x - coord[0]) ** 2 + (y - coord[1]) ** 2);
-          if (distance < 5) {
+          if (distance < 5 && geometry.id) {
             this.geometryService.deleteGeometry(geometry.id);
             return;
           }
@@ -205,31 +209,37 @@ export class GeometryCanvasComponent implements OnInit, AfterViewInit, OnDestroy
     this.ctx.closePath();
   }
 
-  openDialog(geometryData: Partial<Geometry>): void {
+  toggleForm() {
+    this.openDialog();
+  }
+
+  openDialog(geometry?: GeometryViewModel): void {
+    console.log("geometry: ", geometry)
     const dialogRef = this.dialog.open(GeometryDialogComponent, {
-      width: '300px',
-      data: {
-        name: geometryData.name || '',
-        geometry: geometryData
-      }
+      data: { geometry },
     });
 
-    dialogRef.afterClosed().subscribe(result => {
+    dialogRef.afterClosed().subscribe((result: GeometryViewModel | null) => {
       if (result) {
-        const geometryToSave: Omit<Geometry, 'id'> = {
-          name: result.name,
-          type: geometryData.type!,
-          coordinates: geometryData.coordinates!,
-        };
-
-        if (this.selectedGeometry) {
-          this.geometryService.updateGeometry(this.selectedGeometry.id, geometryToSave);
+        if (this.selectedGeometry && this.selectedGeometry.id) {
+          this.geometryService.updateGeometry(this.selectedGeometry.id, result); // Pass the complete result
           this.selectedGeometry = null;
         } else {
-          this.geometryService.addGeometry(geometryToSave);
+          this.geometryService.addGeometry(result); // Pass the complete result
         }
       }
+      this.editingGeometryId = null;
     });
+  }
+
+  toggleEdit(geometry: GeometryViewModel): void {
+    if (this.editingGeometryId === geometry.id) {
+      this.editingGeometryId = null;
+    } else {
+      //Safe way to assign the id.
+      this.editingGeometryId = geometry.id ? geometry.id : null;
+      this.openDialog(geometry);
+    }
   }
 
   redrawCanvas(): void {
@@ -242,7 +252,7 @@ export class GeometryCanvasComponent implements OnInit, AfterViewInit, OnDestroy
     }
     this.drawPreview();
   }
-  drawGeometry(geometry: Geometry): void {
+  drawGeometry(geometry: GeometryViewModel): void {
     if (!this.ctx) return;
 
     this.ctx.beginPath();
@@ -271,7 +281,6 @@ export class GeometryCanvasComponent implements OnInit, AfterViewInit, OnDestroy
     if (geometry.name && geometry.coordinates.length > 0) {
       this.ctx.font = '12px Arial';
       this.ctx.fillStyle = 'black';
-
 
       let centerX: number;
       let centerY: number;
@@ -312,7 +321,7 @@ export class GeometryCanvasComponent implements OnInit, AfterViewInit, OnDestroy
     }
   }
 
-  toggleDraw(){
+  toggleDraw() {
     this.mode = this.isDrawing ? 'none' : 'draw';
     this.isDrawing = !this.isDrawing;
     this.tempCoordinates = [];

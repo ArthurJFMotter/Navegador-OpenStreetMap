@@ -6,7 +6,7 @@
     position: absolute;
     background-color: var(--mat-sys-surface-container);
     width: 100dvw;
-    height: calc(100dvh - 4px);
+    height: calc(100dvh - 0.25rem);
 }
 
 .buttons-container {
@@ -18,6 +18,19 @@
     padding: 0.5rem 1rem;
     background-color: var(--mat-sys-surface-container-high);
     width: 100%;
+
+    button.selected-button {
+        &.mat-mdc-button-base {
+            background-color: var(--mat-sys-primary);
+            color: var(--mat-sys-on-primary);
+        }
+    }
+
+    button.selected-button:hover {
+        &.mat-mdc-button-base {
+            background-color: var(--mat-sys-tertiary);
+        }
+    }
 
     mat-button-toggle-group {
         background-color: var(--mat-sys-surface);

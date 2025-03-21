@@ -1,25 +1,49 @@
-// src/app/geometry-dialog/geometry-dialog.component.ts
-import { Component, Inject } from '@angular/core';
+import { Component, Inject, OnInit } from '@angular/core';
 import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
-import { Geometry } from '../../services/geometry.service'; //import the interface.
-
-export interface DialogData {
-    name: string;
-    geometry: Partial<Geometry>;
-}
+import { GeometryViewModel } from '../../models/geometry.model';
+import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 
 @Component({
   selector: 'app-geometry-dialog',
   standalone: false,
   templateUrl: './geometry-dialog.component.html',
+  styleUrl: './geometry-dialog.component.scss',
 })
-export class GeometryDialogComponent {
-  constructor(
-    public dialogRef: MatDialogRef<GeometryDialogComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: DialogData
-  ) {}
+export class GeometryDialogComponent implements OnInit {
+  form!: FormGroup;
+  isEditMode = false;
 
-  onNoClick(): void {
+  constructor(
+    private fb: FormBuilder,
+    public dialogRef: MatDialogRef<GeometryDialogComponent>,
+    @Inject(MAT_DIALOG_DATA) public data: { geometry?: GeometryViewModel },
+  ) { }
+
+  ngOnInit(): void {
+    this.isEditMode = !!this.data.geometry;
+    this.buildForm();
+  }
+
+  buildForm(): void {
+    const geometry = this.data.geometry;
+
+    this.form = this.fb.group({
+      name: [geometry?.name || ''],
+      type: [geometry?.type || ''],
+      coordinates: [geometry?.coordinates || []],
+    });
+  }
+
+  onSubmit(): void {
+    if (this.form.valid) {
+      const formData: GeometryViewModel = this.form.value;
+      this.dialogRef.close(formData);
+    } else {
+      this.form.markAllAsTouched();
+    }
+  }
+
+  onCancel(): void {
     this.dialogRef.close();
   }
 }

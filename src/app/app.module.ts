@@ -17,7 +17,7 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { OpenStreetMapService } from './services/open-street-map.service';
 import { GeometryCanvasComponent } from './components/geometry-canvas/geometry-canvas.component';
 import { GeometryDialogComponent } from './components/geometry-dialog/geometry-dialog.component';
-import { FormsModule } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 
 @NgModule({
   declarations: [
@@ -37,7 +37,8 @@ import { FormsModule } from '@angular/forms';
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
-    MatToolbarModule
+    MatToolbarModule,
+    ReactiveFormsModule
   ],
   providers: [OpenStreetMapService],
   bootstrap: [AppComponent]
