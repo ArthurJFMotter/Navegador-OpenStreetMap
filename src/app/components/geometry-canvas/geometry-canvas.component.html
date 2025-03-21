@@ -1,13 +1,37 @@
-<div>
-    <button mat-raised-button (click)="setMode('draw')" [color]="mode === 'draw' ? 'primary' : ''">Draw</button>
-    <button mat-raised-button (click)="setMode('edit')" [color]="mode === 'edit' ? 'primary' : ''">Edit</button>
-    <button mat-raised-button (click)="setMode('delete')" [color]="mode === 'delete' ? 'warn' : ''">Delete</button>
+<div class="main-container">
+    <section class="buttons-container">
 
-    <mat-button-toggle-group *ngIf="mode === 'draw'" [(ngModel)]="drawingType" (ngModelChange)="setDrawingType($event)">
-        <mat-button-toggle value="point">Point</mat-button-toggle>
-        <mat-button-toggle value="line">Line</mat-button-toggle>
-        <mat-button-toggle value="polygon">Polygon</mat-button-toggle>
-    </mat-button-toggle-group>
+        <button mat-raised-button (click)="toggleDraw()" [color]="mode === 'draw' ? 'primary' : ''">
+            <mat-icon>brush</mat-icon>
+            <span>Desenhar</span>
+        </button>
+        <button mat-raised-button (click)="setMode('edit')" *ngIf="mode !== 'draw'"
+            [color]="mode === 'edit' ? 'primary' : ''">
+            <mat-icon>edit_note</mat-icon>
+            <span>Editar</span>
+        </button>
+        <button mat-raised-button (click)="setMode('delete')" *ngIf="mode !== 'draw'"
+            [color]="mode === 'delete' ? 'warn' : ''">
+            <mat-icon>delete</mat-icon>
+            <span>Deletar</span>
+        </button>
 
-    <canvas #canvas width="800" height="600" style="border: 1px solid black;"></canvas>
+        <mat-button-toggle-group *ngIf="mode === 'draw'" [(ngModel)]="drawingType"
+            (ngModelChange)="setDrawingType($event)">
+            <mat-button-toggle value="point">
+                <mat-icon>fiber_manual_record</mat-icon>
+                <span>Ponto</span>
+            </mat-button-toggle>
+            <mat-button-toggle value="line">
+                <mat-icon>horizontal_rule</mat-icon>
+                <span>Linha</span>
+            </mat-button-toggle>
+            <mat-button-toggle value="polygon">
+                <mat-icon>timeline</mat-icon>
+                <span>Polígono</span>
+            </mat-button-toggle>
+        </mat-button-toggle-group>
+    </section>
+
+    <canvas #canvas></canvas>
 </div>

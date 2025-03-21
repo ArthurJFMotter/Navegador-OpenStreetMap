@@ -5,6 +5,8 @@ import {
   ElementRef,
   AfterViewInit,
   OnDestroy,
+  HostListener,
+  Renderer2
 } from '@angular/core';
 import { GeometryService, Geometry } from '../../services/geometry.service';
 import { Subscription } from 'rxjs';
@@ -29,9 +31,16 @@ export class GeometryCanvasComponent implements OnInit, AfterViewInit, OnDestroy
   drawingType: 'point' | 'line' | 'polygon' = 'point';
   private isDrawing = false;
   private tempCoordinates: number[][] = [];
-  private previewCoordinates: number[][] = []; // For drawing preview
+  private previewCoordinates: number[][] = [];
+  private scaleX = 1;  // Scaling factor for X
+  private scaleY = 1;  // Scaling factor for Y
+  canvasWidth = 800;
+  canvasHeight = 600;
 
-  constructor(private geometryService: GeometryService, private dialog: MatDialog) {}
+  constructor(
+    private geometryService: GeometryService, 
+    private dialog: MatDialog, 
+    private renderer: Renderer2) { }
 
   ngOnInit(): void {
     this.geometrySubscription = this.geometryService.geometries$.subscribe(
@@ -45,11 +54,28 @@ export class GeometryCanvasComponent implements OnInit, AfterViewInit, OnDestroy
   ngAfterViewInit(): void {
     this.ctx = this.canvasRef.nativeElement.getContext('2d');
     if (!this.ctx) {
-      console.error("Could not get 2D context");
+      console.error('Could not get 2D context');
       return;
     }
+
+    this.renderer.setAttribute(this.canvasRef.nativeElement, 'width', this.canvasWidth.toString());
+    this.renderer.setAttribute(this.canvasRef.nativeElement, 'height', this.canvasHeight.toString());
+    this.calculateScalingFactors();
     this.setupCanvasListeners();
-    this.redrawCanvas(); // Initial draw
+    this.redrawCanvas();
+  }
+
+  @HostListener('window:resize', ['$event'])
+  onResize(event: Event) {
+    this.calculateScalingFactors();
+    this.redrawCanvas();
+  }
+
+  calculateScalingFactors() {
+    const canvas = this.canvasRef.nativeElement;
+    const rect = canvas.getBoundingClientRect();
+    this.scaleX = this.canvasWidth / rect.width;
+    this.scaleY = this.canvasHeight / rect.height;
   }
 
   ngOnDestroy(): void {
@@ -63,26 +89,25 @@ export class GeometryCanvasComponent implements OnInit, AfterViewInit, OnDestroy
     canvas.addEventListener('mousemove', this.onMouseMove.bind(this));
     canvas.addEventListener('mouseup', this.onMouseUp.bind(this));
     canvas.addEventListener('click', this.onClick.bind(this));
-    canvas.addEventListener('dblclick', this.onDoubleClick.bind(this)); // Add double-click
+    canvas.addEventListener('dblclick', this.onDoubleClick.bind(this));
   }
-  onDoubleClick(event: MouseEvent): void{
+
+  onDoubleClick(event: MouseEvent): void {
     if (this.mode === 'draw' && (this.drawingType === 'line' || this.drawingType === 'polygon')) {
       this.finishDrawing();
     }
   }
 
-
   onClick(event: MouseEvent): void {
     if (this.mode === 'delete') {
       const rect = this.canvasRef.nativeElement.getBoundingClientRect();
-      const x = event.clientX - rect.left;
-      const y = event.clientY - rect.top;
+      const x = (event.clientX - rect.left) * this.scaleX; 
+      const y = (event.clientY - rect.top) * this.scaleY;
 
-       // Find the geometry that was clicked.
       for (const geometry of this.geometries) {
         for (const coord of geometry.coordinates) {
           const distance = Math.sqrt((x - coord[0]) ** 2 + (y - coord[1]) ** 2);
-          if (distance < 5) { // 5 pixel radius
+          if (distance < 5) {
             this.geometryService.deleteGeometry(geometry.id);
             return;
           }
@@ -90,25 +115,24 @@ export class GeometryCanvasComponent implements OnInit, AfterViewInit, OnDestroy
       }
     } else if (this.mode === 'edit') {
       const rect = this.canvasRef.nativeElement.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
+      const x = (event.clientX - rect.left) * this.scaleX;
+      const y = (event.clientY - rect.top) * this.scaleY;
 
-        for (const geometry of this.geometries) {
-          for (const coord of geometry.coordinates) {
-            const distance = Math.sqrt((x - coord[0]) ** 2 + (y - coord[1]) ** 2);
-            if (distance < 5) { // 5 pixel radius for selection
-                this.selectedGeometry = geometry;
-                this.openDialog(geometry); //pass the geometry to be edited.
-                return;
-              }
+      for (const geometry of this.geometries) {
+        for (const coord of geometry.coordinates) {
+          const distance = Math.sqrt((x - coord[0]) ** 2 + (y - coord[1]) ** 2);
+          if (distance < 5) {
+            this.selectedGeometry = geometry;
+            this.openDialog(geometry);
+            return;
           }
         }
+      }
     } else if (this.mode === 'draw' && this.drawingType === 'point') {
-      // Handle point creation directly on click
       const rect = this.canvasRef.nativeElement.getBoundingClientRect();
-      const x = event.clientX - rect.left;
-      const y = event.clientY - rect.top;
-      this.tempCoordinates = [[x, y]]; // Single point
+      const x = (event.clientX - rect.left) * this.scaleX;
+      const y = (event.clientY - rect.top) * this.scaleY;
+      this.tempCoordinates = [[x, y]];
       this.finishDrawing();
     }
   }
@@ -117,16 +141,15 @@ export class GeometryCanvasComponent implements OnInit, AfterViewInit, OnDestroy
     if (this.mode === 'draw' && this.drawingType !== 'point') {
       this.isDrawing = true;
       const rect = this.canvasRef.nativeElement.getBoundingClientRect();
-      const x = event.clientX - rect.left;
-      const y = event.clientY - rect.top;
+      const x = (event.clientX - rect.left) * this.scaleX;
+      const y = (event.clientY - rect.top) * this.scaleY;
 
-      // Start a new line/polygon or add a point to the existing one
       if (this.tempCoordinates.length === 0) {
         this.tempCoordinates.push([x, y]);
       } else {
-        this.tempCoordinates.push([x,y]);
+        this.tempCoordinates.push([x, y]);
       }
-        this.previewCoordinates = [...this.tempCoordinates, [x,y]]; //initialize with current point.
+      this.previewCoordinates = [...this.tempCoordinates, [x, y]];
       this.redrawCanvas();
     }
   }
@@ -134,30 +157,26 @@ export class GeometryCanvasComponent implements OnInit, AfterViewInit, OnDestroy
   onMouseMove(event: MouseEvent): void {
     if (this.mode === 'draw' && this.isDrawing && this.drawingType !== 'point') {
       const rect = this.canvasRef.nativeElement.getBoundingClientRect();
-      const x = event.clientX - rect.left;
-      const y = event.clientY - rect.top;
-      // Update the preview coordinates
-      this.previewCoordinates = [...this.tempCoordinates, [x, y]]; // Add current mouse position
+      const x = (event.clientX - rect.left) * this.scaleX;
+      const y = (event.clientY - rect.top) * this.scaleY;
+
+      this.previewCoordinates = [...this.tempCoordinates, [x, y]];
       this.redrawCanvas();
     }
   }
 
   onMouseUp(event: MouseEvent): void {
     if (this.mode === 'draw' && this.isDrawing && this.drawingType !== 'point') {
-      //Line and Polygon needs one more click, so, we just update the canvas and dont save anything, untill double click.
-       const rect = this.canvasRef.nativeElement.getBoundingClientRect();
-       const x = event.clientX - rect.left;
-       const y = event.clientY - rect.top;
-       this.previewCoordinates = [...this.tempCoordinates, [x,y]];  //Add current mouse position
-       this.redrawCanvas(); //update the canvas
+      const rect = this.canvasRef.nativeElement.getBoundingClientRect();
+      const x = (event.clientX - rect.left) * this.scaleX;
+      const y = (event.clientY - rect.top) * this.scaleY;
+      this.previewCoordinates = [...this.tempCoordinates, [x, y]];
+      this.redrawCanvas();
     }
   }
-
-
-
+  //Other methods remains the same.
   finishDrawing(): void {
     if (this.tempCoordinates.length > 0) {
-      // For lines and polygons, open dialog *after* drawing
       this.openDialog({
         type: this.drawingType,
         coordinates: [...this.tempCoordinates],
@@ -172,14 +191,14 @@ export class GeometryCanvasComponent implements OnInit, AfterViewInit, OnDestroy
     if (!this.ctx || this.previewCoordinates.length < 2) return;
 
     this.ctx.beginPath();
-    this.ctx.strokeStyle = 'rgba(0, 0, 255, 0.5)'; // Semi-transparent blue for preview
+    this.ctx.strokeStyle = 'rgba(0, 0, 255, 0.5)';
     this.ctx.lineWidth = 2;
     this.ctx.moveTo(this.previewCoordinates[0][0], this.previewCoordinates[0][1]);
     for (let i = 1; i < this.previewCoordinates.length; i++) {
       this.ctx.lineTo(this.previewCoordinates[i][0], this.previewCoordinates[i][1]);
     }
     if (this.drawingType === 'polygon' && this.previewCoordinates.length > 2) {
-       this.ctx.closePath();
+      this.ctx.closePath();
     }
 
     this.ctx.stroke();
@@ -187,12 +206,12 @@ export class GeometryCanvasComponent implements OnInit, AfterViewInit, OnDestroy
   }
 
   openDialog(geometryData: Partial<Geometry>): void {
-     const dialogRef = this.dialog.open(GeometryDialogComponent, {
-        width: '300px',
-        data: {
-        name: geometryData.name || '',  //Default or existing name
+    const dialogRef = this.dialog.open(GeometryDialogComponent, {
+      width: '300px',
+      data: {
+        name: geometryData.name || '',
         geometry: geometryData
-        }
+      }
     });
 
     dialogRef.afterClosed().subscribe(result => {
@@ -203,11 +222,11 @@ export class GeometryCanvasComponent implements OnInit, AfterViewInit, OnDestroy
           coordinates: geometryData.coordinates!,
         };
 
-        if(this.selectedGeometry){ //if we have something selected, means we are editing.
-            this.geometryService.updateGeometry(this.selectedGeometry.id, geometryToSave);
-            this.selectedGeometry = null; //clear selection
+        if (this.selectedGeometry) {
+          this.geometryService.updateGeometry(this.selectedGeometry.id, geometryToSave);
+          this.selectedGeometry = null;
         } else {
-            this.geometryService.addGeometry(geometryToSave);
+          this.geometryService.addGeometry(geometryToSave);
         }
       }
     });
@@ -216,16 +235,13 @@ export class GeometryCanvasComponent implements OnInit, AfterViewInit, OnDestroy
   redrawCanvas(): void {
     if (!this.ctx) return;
 
-    this.ctx.clearRect(0, 0, this.canvasRef.nativeElement.width, this.canvasRef.nativeElement.height);
+    this.ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
 
     for (const geometry of this.geometries) {
       this.drawGeometry(geometry);
     }
-    //Draw the preview of the geometry before saving.
     this.drawPreview();
-
   }
-
   drawGeometry(geometry: Geometry): void {
     if (!this.ctx) return;
 
@@ -245,7 +261,7 @@ export class GeometryCanvasComponent implements OnInit, AfterViewInit, OnDestroy
         this.ctx.lineTo(geometry.coordinates[i][0], geometry.coordinates[i][1]);
       }
       if (geometry.type === 'polygon') {
-        this.ctx.closePath(); // Close the polygon
+        this.ctx.closePath();
       }
       this.ctx.stroke();
     }
@@ -262,16 +278,16 @@ export class GeometryCanvasComponent implements OnInit, AfterViewInit, OnDestroy
 
       if (geometry.type === 'point') {
         centerX = geometry.coordinates[0][0];
-        centerY = geometry.coordinates[0][1] - 10; // Position above the point
-        this.ctx.textAlign = 'center'; // Center horizontally for point
-        this.ctx.textBaseline = 'bottom'; // Align to bottom for point
+        centerY = geometry.coordinates[0][1] - 10;
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'bottom';
 
       } else if (geometry.type === 'line') {
         // Midpoint of the line
         centerX = (geometry.coordinates[0][0] + geometry.coordinates[geometry.coordinates.length - 1][0]) / 2;
         centerY = (geometry.coordinates[0][1] + geometry.coordinates[geometry.coordinates.length - 1][1]) / 2;
-        this.ctx.textAlign = 'center'; // Center the text horizontally
-        this.ctx.textBaseline = 'middle'; // Center the text vertically
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
       } else if (geometry.type === 'polygon') {
         // Calculate centroid (average of all vertices)
         let sumX = 0;
@@ -282,31 +298,37 @@ export class GeometryCanvasComponent implements OnInit, AfterViewInit, OnDestroy
         }
         centerX = sumX / geometry.coordinates.length;
         centerY = sumY / geometry.coordinates.length;
-        this.ctx.textAlign = 'center'; // Center the text horizontally
-        this.ctx.textBaseline = 'middle'; // Center the text vertically
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
       }
-        else
-      {
+      else {
         centerX = 0;
         centerY = 0;
-           this.ctx.textAlign = 'center'; // Center the text horizontally
-        this.ctx.textBaseline = 'middle'; // Center the text vertically
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
       }
 
       this.ctx.fillText(geometry.name, centerX, centerY);
     }
   }
 
+  toggleDraw(){
+    this.mode = this.isDrawing ? 'none' : 'draw';
+    this.isDrawing = !this.isDrawing;
+    this.tempCoordinates = [];
+    this.previewCoordinates = [];
+  }
+
   setMode(mode: Mode): void {
     this.mode = mode;
     this.isDrawing = false;
     this.tempCoordinates = [];
-    this.previewCoordinates = []; // Reset preview
+    this.previewCoordinates = [];
   }
 
   setDrawingType(type: 'point' | 'line' | 'polygon'): void {
     this.drawingType = type;
-    this.tempCoordinates = []; // Clear existing temp coordinates
+    this.tempCoordinates = [];
     this.previewCoordinates = [];
   }
 }
