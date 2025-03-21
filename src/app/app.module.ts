@@ -15,14 +15,16 @@ import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { OpenStreetMapService } from './services/open-street-map.service';
-import { GeometryCanvasComponent } from './components/geometry-canvas/geometry-canvas.component';
 import { GeometryDialogComponent } from './components/geometry-dialog/geometry-dialog.component';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
+
+//extra imports
+import 'leaflet-draw';
+import { GeometryService } from './services/geometry.service';
 
 @NgModule({
   declarations: [
     AppComponent,
-    GeometryCanvasComponent,
     GeometryDialogComponent,
     MapScreenComponent
   ],
@@ -40,7 +42,7 @@ import { FormsModule, ReactiveFormsModule } from '@angular/forms';
     MatToolbarModule,
     ReactiveFormsModule
   ],
-  providers: [OpenStreetMapService],
+  providers: [OpenStreetMapService, GeometryService],
   bootstrap: [AppComponent]
 })
 export class AppModule { }
