@@ -1,8 +1,6 @@
-// geometry.service.ts
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { GeometryViewModel } from '../models/geometry.model';
-
 
 @Injectable({
     providedIn: 'root',
@@ -26,7 +24,7 @@ export class GeometryService {
         
         const currentGeometries = this.geometriesSubject.value;
         this.geometriesSubject.next([...currentGeometries, newGeometry]);
-        this.nextId++; //Increment the ID.
+        this.nextId++;
     }
 
     updateGeometry(id: string, updates: Partial<GeometryViewModel>): void {
@@ -47,7 +45,6 @@ export class GeometryService {
         this.geometriesSubject.next(filteredGeometries);
     }
 
-    // Helper function to find a geometry by ID
     getGeometryById(id: string): GeometryViewModel | undefined {
         return this.geometriesSubject.value.find(geo => geo.id === id);
     }

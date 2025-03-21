@@ -127,7 +127,7 @@ export class GeometryCanvasComponent implements OnInit, AfterViewInit, OnDestroy
           const distance = Math.sqrt((x - coord[0]) ** 2 + (y - coord[1]) ** 2);
           if (distance < 5) {
             this.selectedGeometry = geometry;
-            this.openDialog(geometry);
+            this.openDialog(geometry, 'edit'); // Pass 'edit' mode
             return;
           }
         }
@@ -178,18 +178,22 @@ export class GeometryCanvasComponent implements OnInit, AfterViewInit, OnDestroy
       this.redrawCanvas();
     }
   }
-  //Other methods remains the same.
+
   finishDrawing(): void {
     if (this.tempCoordinates.length > 0) {
-      this.openDialog({
+      const newGeometry: GeometryViewModel = {
+        id: undefined, 
+        name: '',
         type: this.drawingType,
         coordinates: [...this.tempCoordinates],
-      });
+        color: "black"
+      };
+      this.openDialog(newGeometry, 'create'); 
     }
     this.isDrawing = false;
     this.tempCoordinates = [];
     this.previewCoordinates = [];
-  }
+}
 
   drawPreview(): void {
     if (!this.ctx || this.previewCoordinates.length < 2) return;
@@ -213,32 +217,32 @@ export class GeometryCanvasComponent implements OnInit, AfterViewInit, OnDestroy
     this.openDialog();
   }
 
-  openDialog(geometry?: GeometryViewModel): void {
-    console.log("geometry: ", geometry)
+  openDialog(geometry?: GeometryViewModel, mode: 'create' | 'edit' = 'create'): void {
     const dialogRef = this.dialog.open(GeometryDialogComponent, {
-      data: { geometry },
+      data: { geometry, mode },
     });
 
     dialogRef.afterClosed().subscribe((result: GeometryViewModel | null) => {
       if (result) {
-        if (this.selectedGeometry && this.selectedGeometry.id) {
-          this.geometryService.updateGeometry(this.selectedGeometry.id, result); // Pass the complete result
+        if (mode === 'edit' && this.selectedGeometry?.id) {
+          // Update existing geometry
+          this.geometryService.updateGeometry(this.selectedGeometry.id, result);
           this.selectedGeometry = null;
         } else {
-          this.geometryService.addGeometry(result); // Pass the complete result
+           // Add new geometry
+          this.geometryService.addGeometry(result);
         }
       }
       this.editingGeometryId = null;
     });
-  }
+}
 
   toggleEdit(geometry: GeometryViewModel): void {
     if (this.editingGeometryId === geometry.id) {
       this.editingGeometryId = null;
     } else {
-      //Safe way to assign the id.
       this.editingGeometryId = geometry.id ? geometry.id : null;
-      this.openDialog(geometry);
+      this.openDialog(geometry, 'edit');
     }
   }
 

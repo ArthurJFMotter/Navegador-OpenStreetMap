@@ -16,27 +16,40 @@ export class GeometryDialogComponent implements OnInit {
   constructor(
     private fb: FormBuilder,
     public dialogRef: MatDialogRef<GeometryDialogComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: { geometry?: GeometryViewModel },
+    @Inject(MAT_DIALOG_DATA) public data: { geometry?: GeometryViewModel; mode: 'create' | 'edit' },
   ) { }
 
   ngOnInit(): void {
-    this.isEditMode = !!this.data.geometry;
+    this.isEditMode = this.data.mode === 'edit';
     this.buildForm();
   }
 
   buildForm(): void {
-    const geometry = this.data.geometry;
-
-    this.form = this.fb.group({
-      name: [geometry?.name || ''],
-      type: [geometry?.type || ''],
-      coordinates: [geometry?.coordinates || []],
-    });
+    if (this.isEditMode && this.data.geometry) {
+      // Edit mode: Initialize with existing geometry data
+      const geometry = this.data.geometry;
+      this.form = this.fb.group({
+        name: [geometry.name || ''],
+        type: [geometry.type, Validators.required],
+        coordinates: [geometry.coordinates, Validators.required],
+      });
+    } else {
+      // Create mode: Initialize with default values
+      this.form = this.fb.group({
+        name: [''],
+        type: [this.data.geometry?.type || '', Validators.required],
+        coordinates: [this.data.geometry?.coordinates || [], Validators.required],
+      });
+    }
   }
 
   onSubmit(): void {
     if (this.form.valid) {
-      const formData: GeometryViewModel = this.form.value;
+      const formData: GeometryViewModel = {
+        ...this.form.value,
+        id: this.data.geometry?.id,
+        color: this.data.geometry?.color || "black",
+      };
       this.dialogRef.close(formData);
     } else {
       this.form.markAllAsTouched();
