@@ -37,6 +37,9 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
         private dialog: MatDialog
     ) { }
 
+    // ... (rest of the component, ngOnInit, ngAfterViewInit, ngOnDestroy, initMap, setupMapListeners, onMapClick, isPointNearPolyline, isPointInsidePolygon, finishDrawing, clearPreview, drawPreview, openDialog, toggleDraw, setMode, setDrawMouseHandlers, resetMouseHandlers, onMapMouseDown, onMapMouseMove, onMapMouseUp, setDrawingType) ...
+    // All methods before redrawMap remain the same
+
     ngOnInit(): void {
         this.geometrySubscription = this.geometryService.geometries$.subscribe(
             (geometries) => {
@@ -152,16 +155,16 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
         return polygon.getBounds().contains(point);
     }
     finishDrawing(): void {
-      if (this.tempCoordinates.length > 0) {
-          const newGeometry: Omit<GeometryViewModel, 'id'> = {
-              name: '',
-              type: this.drawingType,
-              coordinates: this.tempCoordinates.map(latlng => [latlng.lng, latlng.lat]), // lng, lat
-              color: 'black',
-              layer: null, // Will be set by the service
-          };
-          this.openDialog(newGeometry, 'create');
-      }
+        if (this.tempCoordinates.length > 0) {
+            const newGeometry: Omit<GeometryViewModel, 'id'> = {
+                name: '',
+                type: this.drawingType,
+                coordinates: this.tempCoordinates.map(latlng => [latlng.lng, latlng.lat]), // lng, lat
+                color: 'black',
+                layer: null, // Will be set by the service
+            };
+            this.openDialog(newGeometry, 'create');
+        }
 
     }
 
@@ -189,59 +192,33 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
             this.previewLayer.addTo(this.map);
         }
     }
-  openDialog(geometry?: GeometryViewModel, mode: 'create' | 'edit' = 'create'): void {
-    const dialogRef = this.dialog.open(GeometryDialogComponent, {
-        data: { geometry, mode },
-    });
+    openDialog(geometry?: GeometryViewModel, mode: 'create' | 'edit' = 'create'): void {
+        const dialogRef = this.dialog.open(GeometryDialogComponent, {
+            data: { geometry, mode },
+        });
 
-    dialogRef.afterClosed().subscribe((result: GeometryViewModel | null) => {
+        dialogRef.afterClosed().subscribe((result: GeometryViewModel | null) => {
 
-        this.isDrawing = false;
-        this.tempCoordinates = [];
-        this.clearPreview();
-        this.resetMouseHandlers();
-        this.setMode('none');
+            this.isDrawing = false;
+            this.tempCoordinates = [];
+            this.clearPreview();
+            this.resetMouseHandlers();
+            this.setMode('none');
 
-        if (result) {
-            if (mode === 'edit' && this.selectedGeometry?.id) {
-                this.geometryService.updateGeometry(this.selectedGeometry.id, result);
-            } else {
-                const layer = this.geometryService.createLayer(result);
-                if (layer) {
-                    result.layer = layer;
-                    this.geometryService.addGeometry(result);
+            if (result) {
+                if (mode === 'edit' && this.selectedGeometry?.id) {
+                    this.geometryService.updateGeometry(this.selectedGeometry.id, result);
+                } else {
+                    const layer = this.geometryService.createLayer(result);
+                    if (layer) {
+                        result.layer = layer;
+                        this.geometryService.addGeometry(result);
+                    }
                 }
             }
-        }
             this.selectedGeometry = null; // Reset after editing/creating
             this.editingGeometryId = null;
         });
-    }
-
-    redrawMap(): void {
-        if (!this.map) return;
-
-        // Remove all existing layers from the map (that we manage)
-        this.geometries.forEach(geometry => {
-            if (geometry.layer) {
-                this.map.removeLayer(geometry.layer);
-            }
-        });
-
-        // Add layers back to the map, creating them if they don't exist
-        this.geometries.forEach(geometry => {
-            if (!geometry.layer) {
-                geometry.layer = this.geometryService.createLayer(geometry);
-            }
-            if (geometry.layer) {
-                geometry.layer.addTo(this.map);
-
-                if (geometry.name) {
-                  geometry.layer.bindPopup(geometry.name);
-                }
-            }
-        });
-        this.drawPreview();
     }
 
     toggleDraw() {
@@ -265,15 +242,15 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
         }
     }
 
-    setDrawMouseHandlers() : void{
+    setDrawMouseHandlers(): void {
         if (!this.map) return;
         this.resetMouseHandlers();
         this.map.on('mousedown', this.onMapMouseDown.bind(this));
         this.map.on('mousemove', this.onMapMouseMove.bind(this));
         this.map.on('mouseup', this.onMapMouseUp.bind(this));
     }
-    resetMouseHandlers(): void{
-      if (!this.map) return;
+    resetMouseHandlers(): void {
+        if (!this.map) return;
         this.map.off('mousedown', this.onMapMouseDown.bind(this));
         this.map.off('mousemove', this.onMapMouseMove.bind(this));
         this.map.off('mouseup', this.onMapMouseUp.bind(this));
@@ -305,9 +282,72 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
         this.drawingType = type;
         this.tempCoordinates = [];
         this.clearPreview();
-        if(this.isDrawing){
-          this.resetMouseHandlers();
-          this.setDrawMouseHandlers();
+        if (this.isDrawing) {
+            this.resetMouseHandlers();
+            this.setDrawMouseHandlers();
         }
+    }
+
+    private createPointLabel(latLng: L.LatLng, name: string): L.Marker {
+        return L.marker(latLng, {
+            icon: L.divIcon({
+                className: 'text-label',
+                html: `<div style="position: relative; top: -20px; white-space: nowrap;">${name}</div>`,
+                iconSize: [100, 20]
+            })
+        });
+    }
+
+    private createLinePolygonLabel(layer: L.Polyline | L.Polygon, name: string): L.Marker {
+        const center = layer.getCenter();
+        return L.marker(center, {
+            icon: L.divIcon({
+                className: 'text-label',
+                html: `<div style="white-space: nowrap;">${name}</div>`,
+                iconSize: [100, 20]
+            })
+        });
+    }
+
+
+    redrawMap(): void {
+        if (!this.map) return;
+
+        // Remove existing layers and labels.
+        this.geometries.forEach(geometry => {
+            if (geometry.layer) {
+                this.map.removeLayer(geometry.layer);
+            }
+            if (geometry.textLabel) {
+                this.map.removeLayer(geometry.textLabel);
+            }
+        });
+
+        // Add layers and labels back.
+        this.geometries.forEach(geometry => {
+            if (!geometry.layer) {
+                geometry.layer = this.geometryService.createLayer(geometry);
+            }
+            if (geometry.layer) {
+                geometry.layer.addTo(this.map);
+
+                // Add text labels, using type guards.
+                if (geometry.name) {
+                    if (geometry.type === 'point' && geometry.layer instanceof L.Marker) {
+                        geometry.textLabel = this.createPointLabel(geometry.layer.getLatLng(), geometry.name);
+                    } else if (geometry.type === 'line' && geometry.layer instanceof L.Polyline) {
+                        geometry.textLabel = this.createLinePolygonLabel(geometry.layer, geometry.name);
+                    } else if (geometry.type === 'polygon' && geometry.layer instanceof L.Polygon) {
+                        geometry.textLabel = this.createLinePolygonLabel(geometry.layer, geometry.name);
+                    }
+
+                    if (geometry.textLabel) {
+                        geometry.textLabel.addTo(this.map);
+                    }
+                }
+            }
+        });
+
+        this.drawPreview();  // Keep this at the end
     }
 }

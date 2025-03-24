@@ -50,6 +50,9 @@ export class GeometryService {
         // Remove the layer from the map *before* removing it from the data
         if (geometryToDelete && geometryToDelete.layer) {
             this.removeLayerFromMap(geometryToDelete.layer);
+            if (geometryToDelete.textLabel) {
+                this.removeLayerFromMap(geometryToDelete.textLabel);
+            }
         }
 
         const filteredGeometries = currentGeometries.filter((geo) => geo.id !== id);
@@ -67,9 +70,7 @@ export class GeometryService {
 
         let layer: L.Layer | null = null;
         if (geometry.type === 'point') {
-            if (geometry.name) {
-                layer = L.marker(latLngs[0], { icon: this.createDivIcon(geometry.color, geometry.name) });
-            } else { layer = L.marker(latLngs[0], { icon: this.createDivIcon(geometry.color) }); }
+            layer = L.marker(latLngs[0], { icon: this.createDivIcon(geometry.color) });
         } else if (geometry.type === 'line') {
             layer = L.polyline(latLngs, { color: geometry.color || 'black' });
         } else if (geometry.type === 'polygon') {
@@ -78,14 +79,14 @@ export class GeometryService {
         return layer;
     }
 
-    // Helper function to remove layers from the map (IMPORTANT)
+    // Helper function to remove layers from the map
     private removeLayerFromMap(layer: L.Layer): void {
         if (layer) {
-            layer.remove(); // Use the remove() method directly on the layer
+            layer.remove();
         }
     }
 
-    createDivIcon(color: string = 'blue', name: string = ''): L.DivIcon {
+    createDivIcon(color: string = 'blue'): L.DivIcon {
         const iconHtml = `
           <div style="
               background-color: ${color};
@@ -98,15 +99,14 @@ export class GeometryService {
               color: white;
               font-size:8px;
           ">
-            <span>${name ?? ''}</span>  
           </div>
       `;
 
         return L.divIcon({
             html: iconHtml,
-            className: 'my-div-icon', // Add a custom class if needed
-            iconSize: [10, 10],      // Adjust size as needed
-            iconAnchor: [5, 5]     // Adjust anchor point as needed
+            className: 'my-div-icon',
+            iconSize: [10, 10],
+            iconAnchor: [5, 5]
         });
     }
 }

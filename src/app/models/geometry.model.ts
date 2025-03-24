@@ -4,7 +4,8 @@ export interface GeometryViewModel {
     id?: string | null;
     name?: string | null;
     type: "point" | "line" | "polygon";
-    coordinates: number[][]; // [[lng1, lat1], [lng2, lat2], ...]  <-- IMPORTANT: Longitude first!
+    coordinates: number[][]; // [[lng1, lat1], [lng2, lat2], ...]
     color?: string;
-    layer?: L.Layer | null;
+    layer: L.Layer | null;
+    textLabel?: L.Marker;
 }
