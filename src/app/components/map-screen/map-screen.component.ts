@@ -1,4 +1,3 @@
-// map-screen.component.ts
 import { Component, OnInit, AfterViewInit, ElementRef, ViewChild, OnDestroy } from '@angular/core';
 import { OpenStreetMapService } from '../../services/open-street-map.service';
 import { GeometryService } from '../../services/geometry.service';
@@ -78,56 +77,54 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
 
     onMapClick(event: L.LeafletMouseEvent): void {
         if (this.mode === 'delete') {
-           // ... (rest of delete logic is correct) ...
-           for (let i = this.geometries.length - 1; i >= 0; i--) {
-            const geometry = this.geometries[i];
+            for (let i = this.geometries.length - 1; i >= 0; i--) {
+                const geometry = this.geometries[i];
 
-            if (geometry.layer && geometry.id) {
-                if (geometry.type === 'point' && geometry.layer instanceof L.Marker) {
-                    if (geometry.layer.getLatLng().equals(event.latlng, 0.0001)) {
-                        this.confirmAndDelete(geometry);
-                        return;
+                if (geometry.layer && geometry.id) {
+                    if (geometry.type === 'point' && geometry.layer instanceof L.Marker) {
+                        if (geometry.layer.getLatLng().equals(event.latlng, 0.0001)) {
+                            this.confirmAndDelete(geometry);
+                            return;
+                        }
+                    } else if (geometry.type === 'line' && geometry.layer instanceof L.Polyline) {
+                        if (this.isPointNearPolyline(event.latlng, geometry.layer)) {
+                            this.confirmAndDelete(geometry);
+                            return;
+                        }
                     }
-                } else if (geometry.type === 'line' && geometry.layer instanceof L.Polyline) {
-                    if (this.isPointNearPolyline(event.latlng, geometry.layer)) {
-                        this.confirmAndDelete(geometry);
-                        return;
-                    }
-                }
-                else if (geometry.type === 'polygon' && geometry.layer instanceof L.Polygon) {
-                    if (this.isPointInsidePolygon(event.latlng, geometry.layer)) {
-                        this.confirmAndDelete(geometry);
-                        return;
+                    else if (geometry.type === 'polygon' && geometry.layer instanceof L.Polygon) {
+                        if (this.isPointInsidePolygon(event.latlng, geometry.layer)) {
+                            this.confirmAndDelete(geometry);
+                            return;
+                        }
                     }
                 }
             }
-        }
         } else if (this.mode === 'edit') {
-           // ... (rest of edit logic is correct) ...
-           for (let i = this.geometries.length - 1; i >= 0; i--) {
-            const geometry = this.geometries[i];
-            if (geometry.layer) {
-                if (geometry.type === 'point' && geometry.layer instanceof L.Marker) {
-                    if (geometry.layer.getLatLng().equals(event.latlng, 0.0001)) {
-                        this.selectedGeometry = geometry;
-                        this.openDialog(geometry, 'edit');
-                        return;
-                    }
-                } else if (geometry.type === 'line' && geometry.layer instanceof L.Polyline) {
-                    if (this.isPointNearPolyline(event.latlng, geometry.layer)) {
-                        this.selectedGeometry = geometry;
-                        this.openDialog(geometry, 'edit');
-                        return;
-                    }
-                } else if (geometry.type === 'polygon' && geometry.layer instanceof L.Polygon) {
-                    if (this.isPointInsidePolygon(event.latlng, geometry.layer)) {
-                        this.selectedGeometry = geometry;
-                        this.openDialog(geometry, 'edit');
-                        return;
+            for (let i = this.geometries.length - 1; i >= 0; i--) {
+                const geometry = this.geometries[i];
+                if (geometry.layer) {
+                    if (geometry.type === 'point' && geometry.layer instanceof L.Marker) {
+                        if (geometry.layer.getLatLng().equals(event.latlng, 0.0001)) {
+                            this.selectedGeometry = geometry;
+                            this.openDialog(geometry, 'edit');
+                            return;
+                        }
+                    } else if (geometry.type === 'line' && geometry.layer instanceof L.Polyline) {
+                        if (this.isPointNearPolyline(event.latlng, geometry.layer)) {
+                            this.selectedGeometry = geometry;
+                            this.openDialog(geometry, 'edit');
+                            return;
+                        }
+                    } else if (geometry.type === 'polygon' && geometry.layer instanceof L.Polygon) {
+                        if (this.isPointInsidePolygon(event.latlng, geometry.layer)) {
+                            this.selectedGeometry = geometry;
+                            this.openDialog(geometry, 'edit');
+                            return;
+                        }
                     }
                 }
             }
-        }
         } else if (this.mode === 'draw' && this.drawingType === 'point') {
             this.tempCoordinates = [event.latlng];
             this.finishDrawing();
@@ -136,36 +133,38 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
             this.drawPreview();
         }
     }
-    private confirmAndDelete(geometry: GeometryViewModel): void {
-      const dialogRef = this.dialog.open(DeleteDialogComponent, {
-          data: { entityName: geometry.type, entitySpecification: geometry.name },
-      });
 
-      dialogRef.afterClosed().subscribe(result => {
-          if (result && geometry?.id) {
-              this.geometryService.deleteGeometry(geometry.id);
-          }
-      });
+    private confirmAndDelete(geometry: GeometryViewModel): void {
+        const dialogRef = this.dialog.open(DeleteDialogComponent, {
+            data: { entityName: geometry.type, entitySpecification: geometry.name },
+        });
+
+        dialogRef.afterClosed().subscribe(result => {
+            if (result && geometry?.id) {
+                this.geometryService.deleteGeometry(geometry.id);
+            }
+        });
     }
 
     isPointNearPolyline(point: L.LatLng, polyline: L.Polyline, tolerance: number = 10): boolean {
-      const pointPx = this.map.latLngToLayerPoint(point);
-      const latLngs = polyline.getLatLngs() as L.LatLng[];
+        const pointPx = this.map.latLngToLayerPoint(point);
+        const latLngs = polyline.getLatLngs() as L.LatLng[];
 
-      for (let i = 0; i < latLngs.length - 1; i++) {
-          const startPx = this.map.latLngToLayerPoint(latLngs[i]);
-          const endPx = this.map.latLngToLayerPoint(latLngs[i + 1]);
-          const distance = L.LineUtil.pointToSegmentDistance(pointPx, startPx, endPx);
-          if (distance <= tolerance) {
-              return true;
-          }
-      }
-      return false;
+        for (let i = 0; i < latLngs.length - 1; i++) {
+            const startPx = this.map.latLngToLayerPoint(latLngs[i]);
+            const endPx = this.map.latLngToLayerPoint(latLngs[i + 1]);
+            const distance = L.LineUtil.pointToSegmentDistance(pointPx, startPx, endPx);
+            if (distance <= tolerance) {
+                return true;
+            }
+        }
+        return false;
     }
 
     isPointInsidePolygon(point: L.LatLng, polygon: L.Polygon): boolean {
-      return polygon.getBounds().contains(point);
+        return polygon.getBounds().contains(point);
     }
+
     finishDrawing(): void {
         if (this.tempCoordinates.length > 0) {
             const newGeometry: Omit<GeometryViewModel, 'id'> = {
@@ -219,15 +218,13 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
             if (result) {
                 if (mode === 'edit' && this.selectedGeometry?.id) {
                     // Edit existing geometry
-                    //  No transformation needed here:  We *keep* coordinates in EPSG:4326.
                     this.geometryService.updateGeometry(this.selectedGeometry.id, result);
                 } else {
                     // Create new geometry
-                    // No transformation needed here either: We *keep* coordinates in EPSG:4326
-                    const layer = this.geometryService.createLayer(result);  // createLayer expects EPSG:4326
+                    const layer = this.geometryService.createLayer(result);
                     if (layer) {
                         result.layer = layer;
-                        this.geometryService.addGeometry(result);  // addGeometry expects EPSG:4326
+                        this.geometryService.addGeometry(result);
                     }
                 }
             }
@@ -235,6 +232,7 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
             this.editingGeometryId = null;
         });
     }
+
     toggleDraw() {
         if (this.mode === 'draw') {
             this.setMode('none');
@@ -242,7 +240,6 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
             this.setMode('draw');
         }
     }
-
 
     setMode(mode: Mode): void {
         this.mode = mode;
@@ -263,12 +260,14 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
         this.map.on('mousemove', this.onMapMouseMove.bind(this));
         this.map.on('mouseup', this.onMapMouseUp.bind(this));
     }
+
     resetMouseHandlers(): void {
         if (!this.map) return;
         this.map.off('mousedown', this.onMapMouseDown.bind(this));
         this.map.off('mousemove', this.onMapMouseMove.bind(this));
         this.map.off('mouseup', this.onMapMouseUp.bind(this));
     }
+
     onMapMouseDown(event: L.LeafletMouseEvent): void {
         if (this.mode === 'draw' && this.drawingType !== 'point') {
             this.isDrawing = true;
