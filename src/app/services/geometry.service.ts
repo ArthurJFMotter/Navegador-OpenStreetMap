@@ -23,19 +23,20 @@ export class GeometryService {
         this.geometriesSubject.next([...currentGeometries, newGeometry]);
         this.nextId++;
     }
-
     updateGeometry(id: string, updates: Partial<GeometryViewModel>): void {
         const currentGeometries = this.geometriesSubject.value;
         const updatedGeometries = currentGeometries.map((geo) => {
             if (geo.id === id) {
                 const updatedGeo = { ...geo, ...updates };
 
-                // Remove the old layer if it exists
-                if (geo.layer && updates.coordinates) {
+                // Remove the old layer if it exists. 
+                if (geo.layer) {
                     this.removeLayerFromMap(geo.layer);
-                    updatedGeo.layer = this.createLayer(updatedGeo);
                 }
-
+                if (geo.textLabel) {
+                    this.removeLayerFromMap(geo.textLabel);
+                }
+                updatedGeo.layer = null;
                 return updatedGeo;
             }
             return geo;
@@ -47,7 +48,6 @@ export class GeometryService {
         const currentGeometries = this.geometriesSubject.value;
         const geometryToDelete = currentGeometries.find(geo => geo.id === id);
 
-        // Remove the layer from the map *before* removing it from the data
         if (geometryToDelete && geometryToDelete.layer) {
             this.removeLayerFromMap(geometryToDelete.layer);
             if (geometryToDelete.textLabel) {
@@ -62,7 +62,6 @@ export class GeometryService {
     getGeometryById(id: string): GeometryViewModel | undefined {
         return this.geometriesSubject.value.find(geo => geo.id === id);
     }
-
 
     // Helper function to create Leaflet layers
     createLayer(geometry: GeometryViewModel): L.Layer | null {
@@ -79,7 +78,7 @@ export class GeometryService {
         return layer;
     }
 
-    // Helper function to remove layers from the map
+    // Helper function to remove layers from the map 
     private removeLayerFromMap(layer: L.Layer): void {
         if (layer) {
             layer.remove();

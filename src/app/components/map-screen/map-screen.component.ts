@@ -152,16 +152,16 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
         return polygon.getBounds().contains(point);
     }
     finishDrawing(): void {
-      if (this.tempCoordinates.length > 0) {
-          const newGeometry: Omit<GeometryViewModel, 'id'> = {
-              name: '',
-              type: this.drawingType,
-              coordinates: this.tempCoordinates.map(latlng => [latlng.lng, latlng.lat]), // lng, lat
-              color: 'black',
-              layer: null,
-          };
-          this.openDialog(newGeometry, 'create');
-      }
+        if (this.tempCoordinates.length > 0) {
+            const newGeometry: Omit<GeometryViewModel, 'id'> = {
+                name: '',
+                type: this.drawingType,
+                coordinates: this.tempCoordinates.map(latlng => [latlng.lng, latlng.lat]), // Still lng, lat
+                color: 'black',
+                layer: null,
+            };
+            this.openDialog(newGeometry, 'create');
+        }
 
     }
 
@@ -189,7 +189,7 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
             this.previewLayer.addTo(this.map);
         }
     }
-      openDialog(geometry?: GeometryViewModel, mode: 'create' | 'edit' = 'create'): void {
+    openDialog(geometry?: GeometryViewModel, mode: 'create' | 'edit' = 'create'): void {
         const dialogRef = this.dialog.open(GeometryDialogComponent, {
             data: { geometry, mode },
         });
@@ -204,8 +204,12 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
 
             if (result) {
                 if (mode === 'edit' && this.selectedGeometry?.id) {
+                    // Convert coordinates *before* updating.
+                    result.coordinates = this.transformCoordinates(result.coordinates, 'EPSG:3857', 'EPSG:4326');
                     this.geometryService.updateGeometry(this.selectedGeometry.id, result);
                 } else {
+                    // Convert coordinates *before* adding.
+                    result.coordinates = this.transformCoordinates(result.coordinates, 'EPSG:3857', 'EPSG:4326');
                     const layer = this.geometryService.createLayer(result);
                     if (layer) {
                         result.layer = layer;
@@ -213,9 +217,9 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
                     }
                 }
             }
-                this.selectedGeometry = null; // Reset after editing/creating
-                this.editingGeometryId = null;
-            });
+            this.selectedGeometry = null;
+            this.editingGeometryId = null;
+        });
     }
 
     toggleDraw() {
@@ -239,15 +243,15 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
         }
     }
 
-    setDrawMouseHandlers() : void{
+    setDrawMouseHandlers(): void {
         if (!this.map) return;
         this.resetMouseHandlers();
         this.map.on('mousedown', this.onMapMouseDown.bind(this));
         this.map.on('mousemove', this.onMapMouseMove.bind(this));
         this.map.on('mouseup', this.onMapMouseUp.bind(this));
     }
-    resetMouseHandlers(): void{
-      if (!this.map) return;
+    resetMouseHandlers(): void {
+        if (!this.map) return;
         this.map.off('mousedown', this.onMapMouseDown.bind(this));
         this.map.off('mousemove', this.onMapMouseMove.bind(this));
         this.map.off('mouseup', this.onMapMouseUp.bind(this));
@@ -279,9 +283,9 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
         this.drawingType = type;
         this.tempCoordinates = [];
         this.clearPreview();
-        if(this.isDrawing){
-          this.resetMouseHandlers();
-          this.setDrawMouseHandlers();
+        if (this.isDrawing) {
+            this.resetMouseHandlers();
+            this.setDrawMouseHandlers();
         }
     }
 
@@ -290,7 +294,7 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
         const textWidth = text.length * 6;  // Approximate width based on font size
 
         if (type === 'point') {
-            iconAnchor = [textWidth / 2, 20]; // center in px
+            iconAnchor = [textWidth / 2, 20]; // Center horizontally, 20px above
         } else {
             iconAnchor = [textWidth / 2, 0]; // Center horizontally, at the point
         }
@@ -304,7 +308,29 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
             })
         });
     }
+    private transformCoordinates(coordinates: [number, number][], fromProjection: string, toProjection: string): [number, number][] {
+        const sourceCRS = L.CRS[fromProjection as keyof typeof L.CRS];
+        const targetCRS = L.CRS[toProjection as keyof typeof L.CRS];
 
+        if (!sourceCRS || !targetCRS) {
+            console.error(`Invalid CRS: ${fromProjection} or ${toProjection}`);
+            return coordinates;
+        }
+
+        return coordinates.map(coord => {
+            let latLng = L.latLng(coord[1], coord[0]); // Create LatLng (assumed 4326)
+            if (fromProjection === 'EPSG:3857') {
+                latLng = sourceCRS.unproject(L.point(coord[0], coord[1]));  // 3857 -> 4326
+            }
+            if (toProjection === 'EPSG:3857') {
+                const projected = targetCRS.project(latLng); // 4326 -> 3857
+                return [projected.x, projected.y];
+            }
+
+            return [latLng.lng, latLng.lat]; // Return as [lng, lat] (4326)
+
+        });
+    }
     redrawMap(): void {
         if (!this.map) return;
 
@@ -318,7 +344,6 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
             }
         });
 
-        // Add layers and labels back, with improved label positioning
         this.geometries.forEach(geometry => {
             if (!geometry.layer) {
                 geometry.layer = this.geometryService.createLayer(geometry);
