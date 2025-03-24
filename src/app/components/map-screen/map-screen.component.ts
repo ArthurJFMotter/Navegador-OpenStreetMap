@@ -1,3 +1,4 @@
+// map-screen.component.ts
 import { Component, OnInit, AfterViewInit, ElementRef, ViewChild, OnDestroy } from '@angular/core';
 import { OpenStreetMapService } from '../../services/open-street-map.service';
 import { GeometryService } from '../../services/geometry.service';
@@ -77,54 +78,56 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
 
     onMapClick(event: L.LeafletMouseEvent): void {
         if (this.mode === 'delete') {
-            for (let i = this.geometries.length - 1; i >= 0; i--) {
-                const geometry = this.geometries[i];
+           // ... (rest of delete logic is correct) ...
+           for (let i = this.geometries.length - 1; i >= 0; i--) {
+            const geometry = this.geometries[i];
 
-                if (geometry.layer && geometry.id) {
-                    if (geometry.type === 'point' && geometry.layer instanceof L.Marker) {
-                        if (geometry.layer.getLatLng().equals(event.latlng, 0.0001)) {
-                            this.confirmAndDelete(geometry);
-                            return;
-                        }
-                    } else if (geometry.type === 'line' && geometry.layer instanceof L.Polyline) {
-                        if (this.isPointNearPolyline(event.latlng, geometry.layer)) {
-                            this.confirmAndDelete(geometry);
-                            return;
-                        }
+            if (geometry.layer && geometry.id) {
+                if (geometry.type === 'point' && geometry.layer instanceof L.Marker) {
+                    if (geometry.layer.getLatLng().equals(event.latlng, 0.0001)) {
+                        this.confirmAndDelete(geometry);
+                        return;
                     }
-                    else if (geometry.type === 'polygon' && geometry.layer instanceof L.Polygon) {
-                        if (this.isPointInsidePolygon(event.latlng, geometry.layer)) {
-                            this.confirmAndDelete(geometry);
-                            return;
-                        }
+                } else if (geometry.type === 'line' && geometry.layer instanceof L.Polyline) {
+                    if (this.isPointNearPolyline(event.latlng, geometry.layer)) {
+                        this.confirmAndDelete(geometry);
+                        return;
+                    }
+                }
+                else if (geometry.type === 'polygon' && geometry.layer instanceof L.Polygon) {
+                    if (this.isPointInsidePolygon(event.latlng, geometry.layer)) {
+                        this.confirmAndDelete(geometry);
+                        return;
                     }
                 }
             }
+        }
         } else if (this.mode === 'edit') {
-            for (let i = this.geometries.length - 1; i >= 0; i--) {
-                const geometry = this.geometries[i];
-                if (geometry.layer) {
-                    if (geometry.type === 'point' && geometry.layer instanceof L.Marker) {
-                        if (geometry.layer.getLatLng().equals(event.latlng, 0.0001)) {
-                            this.selectedGeometry = geometry;
-                            this.openDialog(geometry, 'edit');
-                            return;
-                        }
-                    } else if (geometry.type === 'line' && geometry.layer instanceof L.Polyline) {
-                        if (this.isPointNearPolyline(event.latlng, geometry.layer)) {
-                            this.selectedGeometry = geometry;
-                            this.openDialog(geometry, 'edit');
-                            return;
-                        }
-                    } else if (geometry.type === 'polygon' && geometry.layer instanceof L.Polygon) {
-                        if (this.isPointInsidePolygon(event.latlng, geometry.layer)) {
-                            this.selectedGeometry = geometry;
-                            this.openDialog(geometry, 'edit');
-                            return;
-                        }
+           // ... (rest of edit logic is correct) ...
+           for (let i = this.geometries.length - 1; i >= 0; i--) {
+            const geometry = this.geometries[i];
+            if (geometry.layer) {
+                if (geometry.type === 'point' && geometry.layer instanceof L.Marker) {
+                    if (geometry.layer.getLatLng().equals(event.latlng, 0.0001)) {
+                        this.selectedGeometry = geometry;
+                        this.openDialog(geometry, 'edit');
+                        return;
+                    }
+                } else if (geometry.type === 'line' && geometry.layer instanceof L.Polyline) {
+                    if (this.isPointNearPolyline(event.latlng, geometry.layer)) {
+                        this.selectedGeometry = geometry;
+                        this.openDialog(geometry, 'edit');
+                        return;
+                    }
+                } else if (geometry.type === 'polygon' && geometry.layer instanceof L.Polygon) {
+                    if (this.isPointInsidePolygon(event.latlng, geometry.layer)) {
+                        this.selectedGeometry = geometry;
+                        this.openDialog(geometry, 'edit');
+                        return;
                     }
                 }
             }
+        }
         } else if (this.mode === 'draw' && this.drawingType === 'point') {
             this.tempCoordinates = [event.latlng];
             this.finishDrawing();
@@ -133,49 +136,47 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
             this.drawPreview();
         }
     }
-
     private confirmAndDelete(geometry: GeometryViewModel): void {
-        const dialogRef = this.dialog.open(DeleteDialogComponent, {
-            data: { entityName: geometry.type, entitySpecification: geometry.name },
-        });
+      const dialogRef = this.dialog.open(DeleteDialogComponent, {
+          data: { entityName: geometry.type, entitySpecification: geometry.name },
+      });
 
-        dialogRef.afterClosed().subscribe(result => {
-            if (result && geometry?.id) {
-                this.geometryService.deleteGeometry(geometry.id);
-            }
-        });
+      dialogRef.afterClosed().subscribe(result => {
+          if (result && geometry?.id) {
+              this.geometryService.deleteGeometry(geometry.id);
+          }
+      });
     }
 
     isPointNearPolyline(point: L.LatLng, polyline: L.Polyline, tolerance: number = 10): boolean {
-        const pointPx = this.map.latLngToLayerPoint(point);
-        const latLngs = polyline.getLatLngs() as L.LatLng[];
+      const pointPx = this.map.latLngToLayerPoint(point);
+      const latLngs = polyline.getLatLngs() as L.LatLng[];
 
-        for (let i = 0; i < latLngs.length - 1; i++) {
-            const startPx = this.map.latLngToLayerPoint(latLngs[i]);
-            const endPx = this.map.latLngToLayerPoint(latLngs[i + 1]);
-            const distance = L.LineUtil.pointToSegmentDistance(pointPx, startPx, endPx);
-            if (distance <= tolerance) {
-                return true;
-            }
-        }
-        return false;
+      for (let i = 0; i < latLngs.length - 1; i++) {
+          const startPx = this.map.latLngToLayerPoint(latLngs[i]);
+          const endPx = this.map.latLngToLayerPoint(latLngs[i + 1]);
+          const distance = L.LineUtil.pointToSegmentDistance(pointPx, startPx, endPx);
+          if (distance <= tolerance) {
+              return true;
+          }
+      }
+      return false;
     }
 
     isPointInsidePolygon(point: L.LatLng, polygon: L.Polygon): boolean {
-        return polygon.getBounds().contains(point);
+      return polygon.getBounds().contains(point);
     }
     finishDrawing(): void {
         if (this.tempCoordinates.length > 0) {
             const newGeometry: Omit<GeometryViewModel, 'id'> = {
                 name: '',
                 type: this.drawingType,
-                coordinates: this.tempCoordinates.map(latlng => [latlng.lng, latlng.lat]), // lng, lat
+                coordinates: this.tempCoordinates.map(latlng => [latlng.lng, latlng.lat]), // lng, lat (EPSG:4326)
                 color: 'black',
                 layer: null,
             };
             this.openDialog(newGeometry, 'create');
         }
-
     }
 
     private clearPreview(): void {
@@ -202,13 +203,13 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
             this.previewLayer.addTo(this.map);
         }
     }
-    openDialog(geometry?: GeometryViewModel, mode: 'create' | 'edit' = 'create'): void {
+
+    openDialog(geometry: Omit<GeometryViewModel, 'id'> | GeometryViewModel, mode: 'create' | 'edit' = 'create'): void {
         const dialogRef = this.dialog.open(GeometryDialogComponent, {
             data: { geometry, mode },
         });
 
         dialogRef.afterClosed().subscribe((result: GeometryViewModel | null) => {
-
             this.isDrawing = false;
             this.tempCoordinates = [];
             this.clearPreview();
@@ -217,16 +218,16 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
 
             if (result) {
                 if (mode === 'edit' && this.selectedGeometry?.id) {
-                    // Convert coordinates *before* updating.
-                    result.coordinates = this.transformCoordinates(result.coordinates, 'EPSG:3857', 'EPSG:4326');
+                    // Edit existing geometry
+                    //  No transformation needed here:  We *keep* coordinates in EPSG:4326.
                     this.geometryService.updateGeometry(this.selectedGeometry.id, result);
                 } else {
-                    // Convert coordinates *before* adding.
-                    result.coordinates = this.transformCoordinates(result.coordinates, 'EPSG:3857', 'EPSG:4326');
-                    const layer = this.geometryService.createLayer(result);
+                    // Create new geometry
+                    // No transformation needed here either: We *keep* coordinates in EPSG:4326
+                    const layer = this.geometryService.createLayer(result);  // createLayer expects EPSG:4326
                     if (layer) {
                         result.layer = layer;
-                        this.geometryService.addGeometry(result);
+                        this.geometryService.addGeometry(result);  // addGeometry expects EPSG:4326
                     }
                 }
             }
@@ -234,7 +235,6 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
             this.editingGeometryId = null;
         });
     }
-
     toggleDraw() {
         if (this.mode === 'draw') {
             this.setMode('none');
@@ -321,29 +321,7 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
             })
         });
     }
-    private transformCoordinates(coordinates: [number, number][], fromProjection: string, toProjection: string): [number, number][] {
-        const sourceCRS = L.CRS[fromProjection as keyof typeof L.CRS];
-        const targetCRS = L.CRS[toProjection as keyof typeof L.CRS];
 
-        if (!sourceCRS || !targetCRS) {
-            console.error(`Invalid CRS: ${fromProjection} or ${toProjection}`);
-            return coordinates;
-        }
-
-        return coordinates.map(coord => {
-            let latLng = L.latLng(coord[1], coord[0]); // Create LatLng (assumed 4326)
-            if (fromProjection === 'EPSG:3857') {
-                latLng = sourceCRS.unproject(L.point(coord[0], coord[1]));  // 3857 -> 4326
-            }
-            if (toProjection === 'EPSG:3857') {
-                const projected = targetCRS.project(latLng); // 4326 -> 3857
-                return [projected.x, projected.y];
-            }
-
-            return [latLng.lng, latLng.lat]; // Return as [lng, lat] (4326)
-
-        });
-    }
     redrawMap(): void {
         if (!this.map) return;
 
