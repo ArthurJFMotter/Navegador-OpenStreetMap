@@ -31,6 +31,8 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
     private tempCoordinates: L.LatLng[] = [];
     private previewLayer: L.Layer | null = null;
     editingGeometryId: string | null = null;
+    private doubleClickTimer: any;
+    private lastClickLatLng: L.LatLng | null = null;
 
     constructor(
         private mapService: OpenStreetMapService,
@@ -60,6 +62,7 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
         if (this.map) {
             this.map.remove();
         }
+        clearTimeout(this.doubleClickTimer);
     }
 
     private initMap(): void {
@@ -79,7 +82,6 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
         if (this.mode === 'delete') {
             for (let i = this.geometries.length - 1; i >= 0; i--) {
                 const geometry = this.geometries[i];
-
                 if (geometry.layer && geometry.id) {
                     if (geometry.type === 'point' && geometry.layer instanceof L.Marker) {
                         if (geometry.layer.getLatLng().equals(event.latlng, 0.0001)) {
@@ -125,14 +127,28 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
                     }
                 }
             }
-        } else if (this.mode === 'draw' && this.drawingType === 'point') {
-            this.tempCoordinates = [event.latlng];
-            this.finishDrawing();
-        } else if (this.mode === 'draw' && (this.drawingType === 'line' || this.drawingType === 'polygon')) {
-            this.tempCoordinates.push(event.latlng);
-            this.drawPreview();
+        } else if (this.mode === 'draw') {
+            if (this.drawingType === 'point') {
+                this.tempCoordinates = [event.latlng];
+                this.finishDrawing();
+            } else if (this.drawingType === 'line' || this.drawingType === 'polygon') {
+                if (this.lastClickLatLng && this.lastClickLatLng.equals(event.latlng)) {
+                    clearTimeout(this.doubleClickTimer);
+                    this.lastClickLatLng = null;
+                    this.finishDrawing();
+                } else {
+                    this.lastClickLatLng = event.latlng;
+                    clearTimeout(this.doubleClickTimer);
+                    this.doubleClickTimer = setTimeout(() => {
+                        this.tempCoordinates.push(event.latlng);
+                        this.drawPreview();
+                        this.lastClickLatLng = null;
+                    }, 250);
+                }
+            }
         }
     }
+
 
     private confirmAndDelete(geometry: GeometryViewModel): void {
         const dialogRef = this.dialog.open(DeleteDialogComponent, {
@@ -167,15 +183,25 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
 
     finishDrawing(): void {
         if (this.tempCoordinates.length > 0) {
+            if (this.drawingType === 'polygon' && this.tempCoordinates.length >= 3) {
+                const firstPoint = this.tempCoordinates[0];
+                const lastPoint = this.tempCoordinates[this.tempCoordinates.length - 1];
+                if (!firstPoint.equals(lastPoint)) {
+                    this.tempCoordinates.push(firstPoint);
+                }
+            }
+
             const newGeometry: Omit<GeometryViewModel, 'id'> = {
                 name: '',
                 type: this.drawingType,
-                coordinates: this.tempCoordinates.map(latlng => [latlng.lng, latlng.lat]), // lng, lat (EPSG:4326)
+                coordinates: this.tempCoordinates.map(latlng => [latlng.lng, latlng.lat]),
                 color: 'black',
                 layer: null,
             };
             this.openDialog(newGeometry, 'create');
         }
+        this.tempCoordinates = [];
+        this.clearPreview();
     }
 
     private clearPreview(): void {
@@ -217,10 +243,8 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
 
             if (result) {
                 if (mode === 'edit' && this.selectedGeometry?.id) {
-                    // Edit existing geometry
                     this.geometryService.updateGeometry(this.selectedGeometry.id, result);
                 } else {
-                    // Create new geometry
                     const layer = this.geometryService.createLayer(result);
                     if (layer) {
                         result.layer = layer;
@@ -247,6 +271,9 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
         this.tempCoordinates = [];
         this.clearPreview();
         this.resetMouseHandlers();
+        this.lastClickLatLng = null;
+        clearTimeout(this.doubleClickTimer);
+
 
         if (mode === 'draw') {
             this.setDrawMouseHandlers();
@@ -269,20 +296,19 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     onMapMouseDown(event: L.LeafletMouseEvent): void {
+        // This is now only relevant for *starting* to draw, not for finishing.
         if (this.mode === 'draw' && this.drawingType !== 'point') {
-            this.isDrawing = true;
-            if (this.tempCoordinates.length === 0) {
-                this.tempCoordinates.push(event.latlng);
-            } else {
-                this.tempCoordinates.push(event.latlng);
-            }
-            this.drawPreview();
+            this.isDrawing = true; //  Set isDrawing to true on mousedown
+            // We no longer add points here, onMapClick handles adding points.
         }
     }
 
     onMapMouseMove(event: L.LeafletMouseEvent): void {
         if (this.mode === 'draw' && this.isDrawing && this.drawingType !== 'point') {
-            const previewCoords = [...this.tempCoordinates, event.latlng];
+            // Show preview using the last clicked point (if any) + current mouse position.
+            const previewCoords = this.tempCoordinates.length > 0
+                ? [...this.tempCoordinates, event.latlng]
+                : [event.latlng];  // Important: Start preview even with one point
             this.drawPreview(previewCoords);
         }
     }
@@ -295,6 +321,9 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
         this.drawingType = type;
         this.tempCoordinates = [];
         this.clearPreview();
+        this.lastClickLatLng = null;
+        clearTimeout(this.doubleClickTimer);
+
         if (this.isDrawing) {
             this.resetMouseHandlers();
             this.setDrawMouseHandlers();
@@ -303,28 +332,26 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
 
     private createTextLabel(position: L.LatLng, text: string, type: 'point' | 'line' | 'polygon'): L.Marker {
         let iconAnchor: [number, number];
-        const textWidth = text.length * 6;  // Approximate width based on font size
+        const textWidth = text.length * 6;  // Approximate width
 
         if (type === 'point') {
-            iconAnchor = [textWidth / 2, 20]; // Center horizontally, 20px above
+            iconAnchor = [textWidth / 2, 20];
         } else {
-            iconAnchor = [textWidth / 2, 0]; // Center horizontally, at the point
+            iconAnchor = [textWidth / 2, 0];
         }
 
         return L.marker(position, {
             icon: L.divIcon({
                 className: 'text-label',
                 html: `<div style="white-space: nowrap;">${text}</div>`,
-                iconSize: [textWidth, 20], //  Set the width dynamically
-                iconAnchor: iconAnchor  //  Set the anchor dynamically
+                iconSize: [textWidth, 20],
+                iconAnchor: iconAnchor
             })
         });
     }
 
     redrawMap(): void {
         if (!this.map) return;
-
-        // Remove existing layers and labels
         this.geometries.forEach(geometry => {
             if (geometry.layer) {
                 this.map.removeLayer(geometry.layer);
@@ -343,14 +370,10 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
 
                 if (geometry.name) {
                     let labelPosition: L.LatLng;
-
                     if (geometry.type === 'point' && geometry.layer instanceof L.Marker) {
-                        // Point: Above the marker.
                         labelPosition = geometry.layer.getLatLng().clone();
                         geometry.textLabel = this.createTextLabel(labelPosition, geometry.name, 'point');
-
                     } else if (geometry.type === 'line' && geometry.layer instanceof L.Polyline) {
-                        // Line: Calculate the true midpoint.
                         const latLngs = geometry.layer.getLatLngs() as L.LatLng[];
                         if (latLngs.length > 0) {
                             let totalLat = 0;
@@ -362,20 +385,16 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
                             labelPosition = L.latLng(totalLat / latLngs.length, totalLng / latLngs.length);
                             geometry.textLabel = this.createTextLabel(labelPosition, geometry.name, 'line');
                         }
-
-
                     } else if (geometry.type === 'polygon' && geometry.layer instanceof L.Polygon) {
                         labelPosition = geometry.layer.getBounds().getCenter();
                         geometry.textLabel = this.createTextLabel(labelPosition, geometry.name, 'polygon');
-
                     }
-
                     if (geometry.textLabel) {
                         geometry.textLabel.addTo(this.map);
                     }
                 }
             }
         });
-        this.drawPreview();
+        this.drawPreview(); // Keep preview updated
     }
 }
