@@ -4,7 +4,7 @@
 <section class="buttons-container">
     <button mat-raised-button (click)="toggleDraw()" [class.selected-button]="mode === 'draw'">
         <mat-icon>brush</mat-icon>
-        <span>Desenhar</span>
+        <span>Criar</span>
     </button>
     <button mat-raised-button (click)="setMode('edit')" *ngIf="mode !== 'draw'" [class.selected-button]="mode === 'edit'">
         <mat-icon>edit_note</mat-icon>
