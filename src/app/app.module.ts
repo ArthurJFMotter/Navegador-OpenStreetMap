@@ -3,6 +3,7 @@ import { NgModule } from '@angular/core';
 import { AppComponent } from './app.component';
 import { BrowserModule } from '@angular/platform-browser';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
+import { DeleteDialogComponent } from './components/delete-dialog/delete-dialog.component';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { GeometryDialogComponent } from './components/geometry-dialog/geometry-dialog.component';
 import { GeometryService } from './services/geometry.service';
@@ -26,6 +27,7 @@ import 'leaflet-draw';
 @NgModule({
   declarations: [
     AppComponent,
+    DeleteDialogComponent,
     GeometryDialogComponent,
     MapScreenComponent
   ],

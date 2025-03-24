@@ -1,0 +1,10 @@
+<p>delete-dialog works!</p>
+<h1 mat-dialog-title>Excluir {{EntityName}}</h1>
+<div mat-dialog-content>
+  <img src="../../../assets/warning.png" width="48"> Tem certeza que deseja excluir 
+  <span style="color: yellow;">{{EntitySpecification}}</span>?
+</div>
+<div mat-dialog-actions align="end">
+  <button mat-button (click)="onCancel()">Cancelar</button>
+  <button mat-button (click)="onConfirm()" cdkFocusInitial>OK</button>
+</div>

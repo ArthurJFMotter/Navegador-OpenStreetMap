@@ -6,6 +6,7 @@ import { GeometryViewModel } from '../../models/geometry.model';
 import { MatDialog } from '@angular/material/dialog';
 import { GeometryDialogComponent } from '../geometry-dialog/geometry-dialog.component';
 import * as L from 'leaflet';
+import { DeleteDialogComponent } from '../delete-dialog/delete-dialog.component';
 
 type Mode = 'draw' | 'edit' | 'delete' | 'none';
 
@@ -82,18 +83,18 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
                 if (geometry.layer && geometry.id) {
                     if (geometry.type === 'point' && geometry.layer instanceof L.Marker) {
                         if (geometry.layer.getLatLng().equals(event.latlng, 0.0001)) {
-                            this.geometryService.deleteGeometry(geometry.id);
+                            this.confirmAndDelete(geometry);
                             return;
                         }
                     } else if (geometry.type === 'line' && geometry.layer instanceof L.Polyline) {
                         if (this.isPointNearPolyline(event.latlng, geometry.layer)) {
-                            this.geometryService.deleteGeometry(geometry.id);
+                            this.confirmAndDelete(geometry);
                             return;
                         }
                     }
                     else if (geometry.type === 'polygon' && geometry.layer instanceof L.Polygon) {
                         if (this.isPointInsidePolygon(event.latlng, geometry.layer)) {
-                            this.geometryService.deleteGeometry(geometry.id);
+                            this.confirmAndDelete(geometry);
                             return;
                         }
                     }
@@ -133,6 +134,18 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
         }
     }
 
+    private confirmAndDelete(geometry: GeometryViewModel): void {
+        const dialogRef = this.dialog.open(DeleteDialogComponent, {
+            data: { entityName: geometry.type, entitySpecification: geometry.name },
+        });
+
+        dialogRef.afterClosed().subscribe(result => {
+            if (result && geometry?.id) {
+                this.geometryService.deleteGeometry(geometry.id);
+            }
+        });
+    }
+
     isPointNearPolyline(point: L.LatLng, polyline: L.Polyline, tolerance: number = 10): boolean {
         const pointPx = this.map.latLngToLayerPoint(point);
         const latLngs = polyline.getLatLngs() as L.LatLng[];
@@ -156,7 +169,7 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
             const newGeometry: Omit<GeometryViewModel, 'id'> = {
                 name: '',
                 type: this.drawingType,
-                coordinates: this.tempCoordinates.map(latlng => [latlng.lng, latlng.lat]), // Still lng, lat
+                coordinates: this.tempCoordinates.map(latlng => [latlng.lng, latlng.lat]), // lng, lat
                 color: 'black',
                 layer: null,
             };
