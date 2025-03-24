@@ -7,6 +7,15 @@
       <input matInput formControlName="name">
     </mat-form-field>
 
+    <mat-form-field appearance="fill">
+      <mat-label>Cor</mat-label>
+      <mat-select formControlName="color">
+        <mat-option *ngFor="let color of colors" [value]="color.value">
+          {{ color.viewValue }}
+        </mat-option>
+      </mat-select>
+    </mat-form-field>
+
     <mat-dialog-actions align="center">
       <button mat-button type="button" (click)="onCancel()">Cancelar</button>
       <button mat-button type="submit" [disabled]="form.invalid">{{ isEditMode ? 'Salvar' : 'Criar' }}</button>

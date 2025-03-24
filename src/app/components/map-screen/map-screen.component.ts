@@ -37,9 +37,6 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
         private dialog: MatDialog
     ) { }
 
-    // ... (rest of the component, ngOnInit, ngAfterViewInit, ngOnDestroy, initMap, setupMapListeners, onMapClick, isPointNearPolyline, isPointInsidePolygon, finishDrawing, clearPreview, drawPreview, openDialog, toggleDraw, setMode, setDrawMouseHandlers, resetMouseHandlers, onMapMouseDown, onMapMouseMove, onMapMouseUp, setDrawingType) ...
-    // All methods before redrawMap remain the same
-
     ngOnInit(): void {
         this.geometrySubscription = this.geometryService.geometries$.subscribe(
             (geometries) => {
@@ -53,7 +50,7 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
         setTimeout(() => {
             this.initMap();
             this.setupMapListeners();
-            this.redrawMap(); // Initial draw after map is ready
+            this.redrawMap();
         }, 0);
     }
 
@@ -155,16 +152,16 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
         return polygon.getBounds().contains(point);
     }
     finishDrawing(): void {
-        if (this.tempCoordinates.length > 0) {
-            const newGeometry: Omit<GeometryViewModel, 'id'> = {
-                name: '',
-                type: this.drawingType,
-                coordinates: this.tempCoordinates.map(latlng => [latlng.lng, latlng.lat]), // lng, lat
-                color: 'black',
-                layer: null, // Will be set by the service
-            };
-            this.openDialog(newGeometry, 'create');
-        }
+      if (this.tempCoordinates.length > 0) {
+          const newGeometry: Omit<GeometryViewModel, 'id'> = {
+              name: '',
+              type: this.drawingType,
+              coordinates: this.tempCoordinates.map(latlng => [latlng.lng, latlng.lat]), // lng, lat
+              color: 'black',
+              layer: null,
+          };
+          this.openDialog(newGeometry, 'create');
+      }
 
     }
 
@@ -192,7 +189,7 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
             this.previewLayer.addTo(this.map);
         }
     }
-    openDialog(geometry?: GeometryViewModel, mode: 'create' | 'edit' = 'create'): void {
+      openDialog(geometry?: GeometryViewModel, mode: 'create' | 'edit' = 'create'): void {
         const dialogRef = this.dialog.open(GeometryDialogComponent, {
             data: { geometry, mode },
         });
@@ -216,9 +213,9 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
                     }
                 }
             }
-            this.selectedGeometry = null; // Reset after editing/creating
-            this.editingGeometryId = null;
-        });
+                this.selectedGeometry = null; // Reset after editing/creating
+                this.editingGeometryId = null;
+            });
     }
 
     toggleDraw() {
@@ -242,15 +239,15 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
         }
     }
 
-    setDrawMouseHandlers(): void {
+    setDrawMouseHandlers() : void{
         if (!this.map) return;
         this.resetMouseHandlers();
         this.map.on('mousedown', this.onMapMouseDown.bind(this));
         this.map.on('mousemove', this.onMapMouseMove.bind(this));
         this.map.on('mouseup', this.onMapMouseUp.bind(this));
     }
-    resetMouseHandlers(): void {
-        if (!this.map) return;
+    resetMouseHandlers(): void{
+      if (!this.map) return;
         this.map.off('mousedown', this.onMapMouseDown.bind(this));
         this.map.off('mousemove', this.onMapMouseMove.bind(this));
         this.map.off('mouseup', this.onMapMouseUp.bind(this));
@@ -282,38 +279,36 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
         this.drawingType = type;
         this.tempCoordinates = [];
         this.clearPreview();
-        if (this.isDrawing) {
-            this.resetMouseHandlers();
-            this.setDrawMouseHandlers();
+        if(this.isDrawing){
+          this.resetMouseHandlers();
+          this.setDrawMouseHandlers();
         }
     }
 
-    private createPointLabel(latLng: L.LatLng, name: string): L.Marker {
-        return L.marker(latLng, {
+    private createTextLabel(position: L.LatLng, text: string, type: 'point' | 'line' | 'polygon'): L.Marker {
+        let iconAnchor: [number, number];
+        const textWidth = text.length * 6;  // Approximate width based on font size
+
+        if (type === 'point') {
+            iconAnchor = [textWidth / 2, 20]; // center in px
+        } else {
+            iconAnchor = [textWidth / 2, 0]; // Center horizontally, at the point
+        }
+
+        return L.marker(position, {
             icon: L.divIcon({
                 className: 'text-label',
-                html: `<div style="position: relative; top: -20px; white-space: nowrap;">${name}</div>`,
-                iconSize: [100, 20]
+                html: `<div style="white-space: nowrap;">${text}</div>`,
+                iconSize: [textWidth, 20], //  Set the width dynamically
+                iconAnchor: iconAnchor  //  Set the anchor dynamically
             })
         });
     }
-
-    private createLinePolygonLabel(layer: L.Polyline | L.Polygon, name: string): L.Marker {
-        const center = layer.getCenter();
-        return L.marker(center, {
-            icon: L.divIcon({
-                className: 'text-label',
-                html: `<div style="white-space: nowrap;">${name}</div>`,
-                iconSize: [100, 20]
-            })
-        });
-    }
-
 
     redrawMap(): void {
         if (!this.map) return;
 
-        // Remove existing layers and labels.
+        // Remove existing layers and labels
         this.geometries.forEach(geometry => {
             if (geometry.layer) {
                 this.map.removeLayer(geometry.layer);
@@ -323,7 +318,7 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
             }
         });
 
-        // Add layers and labels back.
+        // Add layers and labels back, with improved label positioning
         this.geometries.forEach(geometry => {
             if (!geometry.layer) {
                 geometry.layer = this.geometryService.createLayer(geometry);
@@ -331,14 +326,33 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
             if (geometry.layer) {
                 geometry.layer.addTo(this.map);
 
-                // Add text labels, using type guards.
                 if (geometry.name) {
+                    let labelPosition: L.LatLng;
+
                     if (geometry.type === 'point' && geometry.layer instanceof L.Marker) {
-                        geometry.textLabel = this.createPointLabel(geometry.layer.getLatLng(), geometry.name);
+                        // Point: Above the marker.
+                        labelPosition = geometry.layer.getLatLng().clone();
+                        geometry.textLabel = this.createTextLabel(labelPosition, geometry.name, 'point');
+
                     } else if (geometry.type === 'line' && geometry.layer instanceof L.Polyline) {
-                        geometry.textLabel = this.createLinePolygonLabel(geometry.layer, geometry.name);
+                        // Line: Calculate the true midpoint.
+                        const latLngs = geometry.layer.getLatLngs() as L.LatLng[];
+                        if (latLngs.length > 0) {
+                            let totalLat = 0;
+                            let totalLng = 0;
+                            for (const latLng of latLngs) {
+                                totalLat += latLng.lat;
+                                totalLng += latLng.lng;
+                            }
+                            labelPosition = L.latLng(totalLat / latLngs.length, totalLng / latLngs.length);
+                            geometry.textLabel = this.createTextLabel(labelPosition, geometry.name, 'line');
+                        }
+
+
                     } else if (geometry.type === 'polygon' && geometry.layer instanceof L.Polygon) {
-                        geometry.textLabel = this.createLinePolygonLabel(geometry.layer, geometry.name);
+                        labelPosition = geometry.layer.getBounds().getCenter();
+                        geometry.textLabel = this.createTextLabel(labelPosition, geometry.name, 'polygon');
+
                     }
 
                     if (geometry.textLabel) {
@@ -347,7 +361,6 @@ export class MapScreenComponent implements OnInit, AfterViewInit, OnDestroy {
                 }
             }
         });
-
-        this.drawPreview();  // Keep this at the end
+        this.drawPreview();
     }
 }
