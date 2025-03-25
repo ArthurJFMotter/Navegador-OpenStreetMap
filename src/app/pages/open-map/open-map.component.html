@@ -1,1 +1,23 @@
 <div #mapContainer class="map-container"></div>
+
+<div class="controls">
+    <mat-button-toggle-group [value]="geometryType" (change)="onGeometryTypeChange($event)" name="geometryType"
+        aria-label="Geometry Type">
+        <mat-button-toggle value="Point">Ponto</mat-button-toggle>
+        <mat-button-toggle value="LineString">Linha</mat-button-toggle>
+        <mat-button-toggle value="Polygon">Polígono</mat-button-toggle>
+    </mat-button-toggle-group>
+
+    <button mat-raised-button color="primary" (click)="onCreate()">
+        <mat-icon>brush</mat-icon>
+        <span>Criar</span>
+    </button>
+    <button mat-raised-button color="accent" (click)="onEdit()">
+        <mat-icon>edit_location</mat-icon>
+        <span>Editar</span>
+    </button>
+    <button mat-raised-button color="warn" (click)="onDelete()">
+        <mat-icon>delete</mat-icon>
+        <span>Deletar</span>
+    </button>
+</div>
