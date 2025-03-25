@@ -7,7 +7,8 @@ import { DeleteDialogComponent } from './components/delete-dialog/delete-dialog.
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { GeometryDialogComponent } from './components/geometry-dialog/geometry-dialog.component';
 import { GeometryService } from './services/geometry.service';
-import { MapScreenComponent } from './components/map-screen/map-screen.component';
+import { OpenLayerService } from './services/open-layer.service';
+import { OpenMapComponent } from './pages/open-map/open-map.component';
 import { OpenStreetMapService } from './services/open-street-map.service';
 
 // Angular Material Imports
@@ -21,15 +22,12 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatToolbarModule } from '@angular/material/toolbar';
 
-//extra imports
-import 'leaflet-draw';
-
 @NgModule({
   declarations: [
     AppComponent,
     DeleteDialogComponent,
     GeometryDialogComponent,
-    MapScreenComponent
+    OpenMapComponent,
   ],
   imports: [
     BrowserModule,
@@ -46,7 +44,7 @@ import 'leaflet-draw';
     MatToolbarModule,
     ReactiveFormsModule
   ],
-  providers: [GeometryService, OpenStreetMapService],
+  providers: [GeometryService, OpenLayerService, OpenStreetMapService],
   bootstrap: [AppComponent]
 })
 export class AppModule { }

@@ -1,6 +1,6 @@
 import { Component, Inject, OnInit } from '@angular/core';
 import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
-import { GeometryViewModel } from '../../models/geometry.model';
+//import { GeometryViewModel } from '../../models/geometry.model';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 
 interface ColorOption {
@@ -14,7 +14,8 @@ interface ColorOption {
   templateUrl: './geometry-dialog.component.html',
   styleUrl: './geometry-dialog.component.scss',
 })
-export class GeometryDialogComponent implements OnInit {
+export class GeometryDialogComponent /*implements OnInit*/ {
+  /*
   form!: FormGroup;
   isEditMode = false;
 
@@ -68,4 +69,5 @@ export class GeometryDialogComponent implements OnInit {
   onCancel(): void {
     this.dialogRef.close();
   }
+    */
 }

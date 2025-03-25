@@ -1,11 +1,31 @@
-import * as L from 'leaflet';
+// src/app/models/geometry.model.ts
 
-export interface GeometryViewModel {
-    id?: string | null;
-    name?: string | null;
-    type: "point" | "line" | "polygon";
-    coordinates: [number, number][]; // [[lng1, lat1], [lng2, lat2], ...]
-    color?: string;
-    layer: L.Layer | null;
-    textLabel?: L.Marker;
-}
+export interface PointGeometry {
+    type: 'Point';
+    coordinates: [number, number]; // [longitude, latitude]
+  }
+  
+  export interface LineStringGeometry {
+    type: 'LineString';
+    coordinates: [number, number][]; // Array of [longitude, latitude] pairs
+  }
+  
+  export interface PolygonGeometry {
+    type: 'Polygon';
+    coordinates: [number, number][][];  // Array of rings (outer, then inner)
+  }
+  
+  export type Geometry = PointGeometry | LineStringGeometry | PolygonGeometry;
+  
+  export interface FeatureProperties {
+    name?: string;
+    description?: string;
+    [key: string]: any; // Allow for other properties
+  }
+  
+  export interface GeoJsonFeature {
+    type: 'Feature';
+    geometry: Geometry;
+    properties: FeatureProperties | null;
+    id?: string | number;
+  }

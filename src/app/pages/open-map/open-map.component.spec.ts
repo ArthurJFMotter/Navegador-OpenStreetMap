@@ -1,18 +1,18 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { MapScreenComponent } from './map-screen.component';
+import { OpenMapComponent } from './open-map.component';
 
-describe('MapScreenComponent', () => {
-  let component: MapScreenComponent;
-  let fixture: ComponentFixture<MapScreenComponent>;
+describe('OpenMapComponent', () => {
+  let component: OpenMapComponent;
+  let fixture: ComponentFixture<OpenMapComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [MapScreenComponent]
+      imports: [OpenMapComponent]
     })
     .compileComponents();
 
-    fixture = TestBed.createComponent(MapScreenComponent);
+    fixture = TestBed.createComponent(OpenMapComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
   });
