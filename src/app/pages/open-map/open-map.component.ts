@@ -9,6 +9,7 @@ import { Geometry } from 'ol/geom';
 import { fromLonLat } from 'ol/proj';
 import VectorLayer from 'ol/layer/Vector';
 import TileLayer from 'ol/layer/Tile';
+import BaseLayer from 'ol/layer/Base';
 
 @Component({
   selector: 'app-open-map',
@@ -56,7 +57,7 @@ export class OpenMapComponent implements AfterViewInit, OnDestroy {
     const vectorLayer = this.olService.createVectorLayer([pointFeature, lineStringFeature, polygonFeature]);
 
     //Initialize Map - Correct!
-    this.initializeMap([vectorLayer]);
+    this.initializeMap(vectorLayer); // Pass only the vector layer
   }
 
   ngOnDestroy(): void {
@@ -65,13 +66,17 @@ export class OpenMapComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  initializeMap(customLayers: VectorLayer<any>[] = []) {
+  initializeMap(vectorLayer: VectorLayer<any>) {
 
     const osmLayer = this.osmService.createOSMLayer();
     const initialCenter: [number, number] = [-47.4585, -23.5003];
     const initialZoom = 20;
 
-    this.map = this.olService.createMap(this.mapContainer.nativeElement, [...customLayers, osmLayer], initialCenter, initialZoom);
+    // Set z-index for layers
+    osmLayer.setZIndex(0);  // Base map at the bottom
+    vectorLayer.setZIndex(1); // Vector layer on top
 
+
+    this.map = this.olService.createMap(this.mapContainer.nativeElement, [osmLayer, vectorLayer], initialCenter, initialZoom); // Add layers in correct order
   }
 }
