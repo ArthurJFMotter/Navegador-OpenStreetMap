@@ -1,5 +1,3 @@
-// src/app/services/open-streetmap.service.ts
-
 import { Injectable } from '@angular/core';
 import TileLayer from 'ol/layer/Tile';
 import OSM from 'ol/source/OSM';
