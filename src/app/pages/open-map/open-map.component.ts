@@ -5,7 +5,7 @@ import { GeometryService } from '../../services/geometry.service';
 import { GeoJsonFeature } from '../../models/geometry.model';
 
 import { Map, Feature } from 'ol';
-import { Geometry, Point as OlPoint, LineString as OlLineString, Polygon as OlPolygon } from 'ol/geom'; // Import specific geometry types
+import { Geometry, Point as OlPoint, LineString as OlLineString, Polygon as OlPolygon } from 'ol/geom';
 import { fromLonLat } from 'ol/proj';
 import VectorLayer from 'ol/layer/Vector';
 import TileLayer from 'ol/layer/Tile';
@@ -30,13 +30,19 @@ export class OpenMapComponent implements AfterViewInit, OnDestroy {
   private draw!: Draw;
   private modify!: Modify;
   private snap!: Snap;
-  private select!: Select;
+  private selectInteraction!: Select;
   private vectorSource!: VectorSource<Feature<Geometry>>;
   private vectorLayer!: VectorLayer<VectorSource<Feature<Geometry>>>;
 
   geometryType: 'Point' | 'LineString' | 'Polygon' = 'Point';
   selectedFeature: Feature<Geometry> | null = null;
 
+  // Control button visibility
+  showCreateButton: boolean = true;
+  showEditDeleteButtons: boolean = false;
+  selectActive: boolean = false;
+
+  selectedButton: string | null = 'select';
 
   constructor(
     private osmService: OpenStreetMapService,
@@ -54,6 +60,7 @@ export class OpenMapComponent implements AfterViewInit, OnDestroy {
 
     this.initializeMap();
     this.addInteractions();
+    this.onSelect(); // Initialize with select active
   }
 
   ngOnDestroy(): void {
@@ -61,10 +68,14 @@ export class OpenMapComponent implements AfterViewInit, OnDestroy {
       this.map.setTarget(undefined);
     }
   }
+
   onGeometryTypeChange(event: MatButtonToggleChange) {
     this.geometryType = event.value;
-    this.removeInteractions();
-    this.addInteractions();
+    if (this.selectedButton === 'create') {
+        this.removeInteractions();
+        this.addInteractions();
+        this.startDrawing();
+    }
   }
 
   initializeMap() {
@@ -81,42 +92,47 @@ export class OpenMapComponent implements AfterViewInit, OnDestroy {
       source: this.vectorSource,
       type: this.geometryType,
     });
-    this.map.addInteraction(this.draw);
 
     this.modify = new Modify({
       source: this.vectorSource,
     });
 
-    this.map.addInteraction(this.modify);
-
     this.snap = new Snap({ source: this.vectorSource });
-    this.map.addInteraction(this.snap);
 
-    this.select = new Select({
+    this.selectInteraction = new Select({
       condition: click,
       layers: [this.vectorLayer],
     });
 
-    this.map.addInteraction(this.select);
+    this.map.addInteraction(this.draw);
+    this.map.addInteraction(this.modify);
+    this.map.addInteraction(this.snap);
+    this.map.addInteraction(this.selectInteraction);
 
-    this.select.on('select', (e) => {
+
+    this.selectInteraction.on('select', (e) => {
       if (e.selected.length > 0) {
         this.selectedFeature = e.selected[0];
         console.log('Selected feature:', this.selectedFeature);
+        this.showEditDeleteButtons = true;
+        this.showCreateButton = false;
       } else {
         this.selectedFeature = null;
         console.log('No feature selected');
+        this.showEditDeleteButtons = false;
+        this.showCreateButton = true;
       }
     });
 
-    this.setInteractionsActive(false);
+    this.setInteractionsActive(false); // Initially disable drawing/editing
   }
+
 
   removeInteractions() {
     if (this.draw) this.map.removeInteraction(this.draw);
     if (this.modify) this.map.removeInteraction(this.modify);
     if (this.snap) this.map.removeInteraction(this.snap);
-    if (this.select) this.map.removeInteraction(this.select);
+    if (this.selectInteraction) this.map.removeInteraction(this.selectInteraction);
   }
 
   setInteractionsActive(active: boolean) {
@@ -126,13 +142,28 @@ export class OpenMapComponent implements AfterViewInit, OnDestroy {
   }
 
   onCreate() {
-    this.setInteractionsActive(false);
-    this.draw.setActive(true); 
+      this.selectedButton = 'create';
+
+      this.showCreateButton = true;
+      this.showEditDeleteButtons = false;
+      this.setSelectActive(true);
+      this.setInteractionsActive(false);
+      this.removeInteractions();
+      this.addInteractions();
+
+      // Immediately start drawing based on the selected geometry type
+      this.startDrawing();
+  }
+
+  startDrawing() {
+    this.draw.setActive(true);
 
     this.draw.once('drawend', (event) => {
-      const feature = event.feature;
-      this.addFeatureWithProperties(feature);
-      this.setInteractionsActive(false);
+        const feature = event.feature;
+        this.addFeatureWithProperties(feature);
+        this.setInteractionsActive(false);
+        this.showCreateButton = true;
+        this.onSelect();
     });
   }
 
@@ -147,10 +178,11 @@ export class OpenMapComponent implements AfterViewInit, OnDestroy {
 
   onEdit() {
     if (this.selectedFeature) {
+      this.selectedButton = 'edit';
       this.setInteractionsActive(false);
-      this.modify.setActive(true); 
+      this.modify.setActive(true);
     } else {
-      alert("No feature selected to edit. Click a geometry for select");
+      alert("No feature selected to edit. Click a geometry to select.");
     }
   }
 
@@ -159,8 +191,28 @@ export class OpenMapComponent implements AfterViewInit, OnDestroy {
       this.vectorSource.removeFeature(this.selectedFeature);
       this.selectedFeature = null;
       this.setInteractionsActive(false);
+      this.showEditDeleteButtons = false;
+      this.showCreateButton = true;
+      this.onSelect(); // Re-enable select after deleting
     } else {
-      alert('No feature selected to delete. Click a geometry for select');
+      alert('No feature selected to delete. Click a geometry to select.');
     }
+  }
+
+  onSelect() {
+      this.selectedButton = 'select';
+      this.setInteractionsActive(false);
+      this.showCreateButton = true;
+      this.showEditDeleteButtons = false;
+      this.setSelectActive(false);
+
+      if (this.draw) this.draw.setActive(false);
+      if (this.modify) this.modify.setActive(false);
+      if (this.snap) this.snap.setActive(false);
+      if (this.selectInteraction) this.selectInteraction.setActive(true);
+  }
+
+  setSelectActive(active: boolean) {
+    this.selectActive = active;
   }
 }

@@ -1,22 +1,43 @@
 <div #mapContainer class="map-container"></div>
 
 <div class="controls">
-    <mat-button-toggle-group [value]="geometryType" (change)="onGeometryTypeChange($event)" name="geometryType"
-        aria-label="Geometry Type">
-        <mat-button-toggle value="Point">Ponto</mat-button-toggle>
-        <mat-button-toggle value="LineString">Linha</mat-button-toggle>
-        <mat-button-toggle value="Polygon">Polígono</mat-button-toggle>
+    <mat-button-toggle-group *ngIf="selectedButton === 'create'" [value]="geometryType"
+        (change)="onGeometryTypeChange($event)" name="geometryType" aria-label="Geometry Type">
+        <mat-button-toggle value="Point">
+            <mat-icon>radio_button_unchecked</mat-icon>
+            <span>Ponto</span>
+        </mat-button-toggle>
+        <mat-button-toggle value="LineString">
+            <mat-icon>timeline</mat-icon>
+            <span>Linha</span>
+        </mat-button-toggle>
+        <mat-button-toggle value="Polygon">
+            <mat-icon>category</mat-icon>
+            <span>Polígono</span>
+        </mat-button-toggle>
     </mat-button-toggle-group>
 
-    <button mat-raised-button color="primary" (click)="onCreate()">
+    <button mat-raised-button [ngClass]="{'btn-active': selectedButton === 'create'}" (click)="onCreate()"
+        *ngIf="showCreateButton">
         <mat-icon>brush</mat-icon>
         <span>Criar</span>
     </button>
-    <button mat-raised-button color="accent" (click)="onEdit()">
-        <mat-icon>edit_location</mat-icon>
+
+    <button mat-raised-button [ngClass]="{'btn-active': selectedButton === 'select'}" (click)="onSelect()"
+        [disabled]="selectActive">
+        <mat-icon id="desktop-icon">mouse</mat-icon>
+        <mat-icon id="mobile-icon">pan_tool</mat-icon>
+        <span>Selecionar</span>
+    </button>
+
+    <button mat-raised-button [ngClass]="{'btn-active': selectedButton === 'edit'}" (click)="onEdit()"
+        *ngIf="showEditDeleteButtons" [disabled]="!selectedFeature">
+        <mat-icon>edit_note</mat-icon>
         <span>Editar</span>
     </button>
-    <button mat-raised-button color="warn" (click)="onDelete()">
+
+    <button mat-raised-button [ngClass]="{'btn-active': selectedButton === 'delete'}" (click)="onDelete()"
+        *ngIf="showEditDeleteButtons" [disabled]="!selectedFeature">
         <mat-icon>delete</mat-icon>
         <span>Deletar</span>
     </button>
