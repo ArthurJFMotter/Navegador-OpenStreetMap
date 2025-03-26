@@ -5,6 +5,7 @@ import { Style, Stroke, Fill, Circle as CircleStyle, Text } from 'ol/style';
 import { fromLonLat } from 'ol/proj';
 import { Geometry } from 'ol/geom';
 import { FeatureLike } from 'ol/Feature';
+import { Zoom, Attribution } from 'ol/control.js';
 
 import Point from 'ol/geom/Point';
 import LineString from 'ol/geom/LineString';
@@ -64,6 +65,12 @@ export class OpenLayerService {
         center: fromLonLat(center),
         zoom: zoom,
       }),
+      controls: [
+        new Zoom(),          
+        new Attribution({
+           collapsible: false
+        })
+      ]
     });
   }
 
@@ -142,12 +149,12 @@ export class OpenLayerService {
           textOptions.textBaseline = 'bottom';
           textOptions.offsetY = POINT_LABEL_OFFSET_Y;
         } else if (geometryType === 'LineString') {
-           textOptions.textAlign = 'center';
-           textOptions.textBaseline = 'middle';
-           textOptions.placement = 'line';
+          textOptions.textAlign = 'center';
+          textOptions.textBaseline = 'middle';
+          textOptions.placement = 'line';
         } else if (geometryType === 'Polygon') {
-           textOptions.textAlign = 'center';
-           textOptions.textBaseline = 'middle';
+          textOptions.textAlign = 'center';
+          textOptions.textBaseline = 'middle';
         }
 
         textStyle = new Style({
@@ -185,31 +192,31 @@ export class OpenLayerService {
 
       let selectTextStyle: Style | null = null;
       if (featureName) {
-         let textOptions: any = {
-            text: featureName,
-            font: `bold ${TEXT_FONT}`,
-            fill: new Fill({ color: SELECTED_COLOR }),
-            stroke: new Stroke({ color: TEXT_STROKE_COLOR, width: TEXT_STROKE_WIDTH + 1 }),
-            overflow: true,
-            zIndex: 2
-         };
+        let textOptions: any = {
+          text: featureName,
+          font: `bold ${TEXT_FONT}`,
+          fill: new Fill({ color: SELECTED_COLOR }),
+          stroke: new Stroke({ color: TEXT_STROKE_COLOR, width: TEXT_STROKE_WIDTH + 1 }),
+          overflow: true,
+          zIndex: 2
+        };
 
-         if (geometryType === 'Point') {
-            textOptions.textAlign = 'center';
-            textOptions.textBaseline = 'bottom';
-            textOptions.offsetY = POINT_LABEL_OFFSET_Y - 2;
-         } else if (geometryType === 'LineString') {
-             textOptions.textAlign = 'center';
-             textOptions.textBaseline = 'middle';
-             textOptions.placement = 'line';
-         } else if (geometryType === 'Polygon') {
-             textOptions.textAlign = 'center';
-             textOptions.textBaseline = 'middle';
-         }
+        if (geometryType === 'Point') {
+          textOptions.textAlign = 'center';
+          textOptions.textBaseline = 'bottom';
+          textOptions.offsetY = POINT_LABEL_OFFSET_Y - 2;
+        } else if (geometryType === 'LineString') {
+          textOptions.textAlign = 'center';
+          textOptions.textBaseline = 'middle';
+          textOptions.placement = 'line';
+        } else if (geometryType === 'Polygon') {
+          textOptions.textAlign = 'center';
+          textOptions.textBaseline = 'middle';
+        }
 
-         selectTextStyle = new Style({
-           text: new Text(textOptions)
-         });
+        selectTextStyle = new Style({
+          text: new Text(textOptions)
+        });
       }
 
       return selectTextStyle ? [selectGeometryStyle, selectTextStyle] : selectGeometryStyle;
@@ -230,9 +237,9 @@ export class OpenLayerService {
     }
 
     if (!hex || isNaN(r) || isNaN(g) || isNaN(b)) {
-        // Log warning only once or provide a fallback default
-        // console.warn(`Invalid or missing hex color: '${hex}'. Using default gray.`);
-        return `rgba(128, 128, 128, ${alpha})`;
+      // Log warning only once or provide a fallback default
+      // console.warn(`Invalid or missing hex color: '${hex}'. Using default gray.`);
+      return `rgba(128, 128, 128, ${alpha})`;
     }
     return `rgba(${r},${g},${b},${alpha})`;
   }
