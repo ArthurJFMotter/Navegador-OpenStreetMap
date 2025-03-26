@@ -1,5 +1,5 @@
-import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild } from '@angular/core';
-import { MatDialog } from '@angular/material/dialog'; 
+import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, ChangeDetectorRef } from '@angular/core';
+import { MatDialog } from '@angular/material/dialog';
 import { OpenStreetMapService } from '../../services/open-street-map.service';
 import { OpenLayerService } from '../../services/open-layer.service';
 import { GeometryDialogComponent, GeometryDialogData, GeometryDialogResult } from '../../components/geometry-dialog/geometry-dialog.component';
@@ -9,14 +9,15 @@ import { Geometry } from 'ol/geom';
 import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
 import Draw, { DrawEvent } from 'ol/interaction/Draw';
-import Modify from 'ol/interaction/Modify';
+import Modify, { ModifyEvent } from 'ol/interaction/Modify';
 import Snap from 'ol/interaction/Snap';
 import Select, { SelectEvent } from 'ol/interaction/Select';
 import { DragPan } from 'ol/interaction';
 import { MatButtonToggleChange } from '@angular/material/button-toggle';
 import { click } from 'ol/events/condition';
 import { StyleLike } from 'ol/style/Style';
-
+import { unByKey } from 'ol/Observable';
+import { EventsKey } from 'ol/events';
 
 @Component({
   selector: 'app-open-map',
@@ -38,17 +39,24 @@ export class OpenMapComponent implements AfterViewInit, OnDestroy {
   private selectInteraction!: Select;
   private dragPanInteraction!: DragPan;
 
+  private drawEndListenerKey: EventsKey | null = null;
+  private selectListenerKey: EventsKey | null = null;
+  private modifyStartListenerKey: EventsKey | null = null;
+  private modifyEndListenerKey: EventsKey | null = null;
+
   geometryType: 'Point' | 'LineString' | 'Polygon' = 'Point';
   selectedFeature: Feature<Geometry> | null = null;
-  selectedButton: string | null = 'select';
+  selectedButton: 'select' | 'create' | 'edit-geometry' = 'select';
 
   showCreateButton: boolean = true;
   showEditDeleteButtons: boolean = false;
+  hasModifiedGeometry: boolean = false;
 
   constructor(
     private osmService: OpenStreetMapService,
     private olService: OpenLayerService,
-    private dialog: MatDialog
+    private dialog: MatDialog,
+    private cdr: ChangeDetectorRef
   ) { }
 
   ngAfterViewInit(): void {
@@ -62,12 +70,12 @@ export class OpenMapComponent implements AfterViewInit, OnDestroy {
     this.initializeMap();
 
     this.map.getInteractions().forEach(interaction => {
-        if (interaction instanceof DragPan) {
-            this.dragPanInteraction = interaction;
-        }
+      if (interaction instanceof DragPan) {
+        this.dragPanInteraction = interaction;
+      }
     });
     if (!this.dragPanInteraction) {
-        console.warn('DragPan interaction not found.');
+      console.warn('DragPan interaction not found.');
     }
 
     this.addInteractions();
@@ -75,11 +83,14 @@ export class OpenMapComponent implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (this.drawEndListenerKey) unByKey(this.drawEndListenerKey);
+    if (this.selectListenerKey) unByKey(this.selectListenerKey);
+    if (this.modifyStartListenerKey) unByKey(this.modifyStartListenerKey);
+    if (this.modifyEndListenerKey) unByKey(this.modifyEndListenerKey);
+
     if (this.map) {
       this.map.setTarget(undefined);
     }
-     this.draw?.un('drawend', this.handleDrawEnd);
-     this.selectInteraction?.un('select', this.handleSelect);
   }
 
   initializeMap() {
@@ -96,107 +107,115 @@ export class OpenMapComponent implements AfterViewInit, OnDestroy {
     );
   }
 
-  // --- Handler for Draw End ---
   private handleDrawEnd = (event: DrawEvent) => {
-    console.log('Draw End Event - Feature implicitly added to source.');
+    console.log('Draw End Event');
     const feature = event.feature;
+    this.setInteractionState('none');
 
-    // Deactivate drawing immediately to prevent accidental further drawing
-    this.setInteractionState('none'); 
-
-    // Open the dialog to get properties
     this.openGeometryDialog(feature, 'create').then(added => {
-       if (added) {
-           // If added successfully via dialog, go to select mode
-           this.setInteractionState('select');
-           this.selectedButton = 'select';
-           this.showCreateButton = true;
-       } else {
-           // If cancelled, remove the feature that was implicitly added
-           console.log('Creation cancelled, removing feature.');
-           this.vectorSource.removeFeature(feature);
-           // Go back to select mode
-           this.setInteractionState('select');
-           this.selectedButton = 'select';
-           this.showCreateButton = true;
-       }
-    }).catch(error => {
-        console.error("Error during dialog process:", error);
-        // Fallback: Remove feature and reset state even on error
+      if (!added) {
+        console.log('Creation cancelled, removing feature.');
         this.vectorSource.removeFeature(feature);
-        this.setInteractionState('select');
-        this.selectedButton = 'select';
-        this.showCreateButton = true;
+      }
+      this.selectedButton = 'select';
+      this.setInteractionState('select');
+      this.updateButtonVisibility();
+    }).catch(error => {
+      console.error("Error during dialog process:", error);
+      this.vectorSource.removeFeature(feature);
+      this.selectedButton = 'select';
+      this.setInteractionState('select');
+      this.updateButtonVisibility();
     });
   }
 
-  // --- Handler for Select Interaction ---
+
   private handleSelect = (e: SelectEvent) => {
-    if (this.selectedButton === 'select') { // Only act if in select mode
-        if (e.selected.length > 0) {
-            this.selectedFeature = e.selected[0];
-            console.log('Selected feature:', this.selectedFeature.getProperties());
-            this.showEditDeleteButtons = true; // Show edit/delete
-            this.showCreateButton = false; // Hide create
-        } else {
-            this.selectedFeature = null;
-            console.log('No feature selected');
-            this.showEditDeleteButtons = false; // Hide edit/delete
-            this.showCreateButton = true; // Show create
-        }
-    } else {
-        // If not in select mode (e.g., drawing), clear accidental selection
+
+    if (this.selectedButton !== 'select') {
+
+      if (e.selected.length > 0) {
         this.selectInteraction?.getFeatures().clear();
-        // Don't change selectedFeature state here as it might be needed (e.g., during edit)
+      }
+      return;
     }
+
+    if (e.selected.length > 0) {
+      this.selectedFeature = e.selected[0];
+      console.log('Selected feature:', this.selectedFeature.getProperties());
+    } else {
+      this.selectedFeature = null;
+      console.log('No feature selected');
+    }
+    this.updateButtonVisibility();
   }
 
+  private handleModifyStart = (event: ModifyEvent) => {
+    console.log('Modify Start');
+    this.hasModifiedGeometry = false;
+  }
+
+  private handleModifyEnd = (event: ModifyEvent) => {
+    console.log('Modify End (single operation)');
+    this.hasModifiedGeometry = true;
+    // Update geometry property in feature if needed for saving later
+    // event.features.forEach(feature => {
+    //   // You might want to store the updated geometry here if you serialize elsewhere
+    //   // feature.set('updatedGeometry', feature.getGeometry()?.clone());
+    // });
+    // Re-enable pan/zoom if it was disabled
+    // if (this.selectedButton === 'edit-geometry') { // Only re-enable if still in edit mode
+    //     this.dragPanInteraction?.setActive(true);
+    // }
+  }
 
   addInteractions() {
-    // Create Draw interaction (initial type)
+    // Draw
     this.draw = new Draw({
       source: this.vectorSource,
       type: this.geometryType,
       stopClick: true
     });
 
-    // Modify interaction - will be activated separately if needed
+    // Modify
     this.modify = new Modify({
       source: this.vectorSource,
-      // Optionally only modify selected features:
-      features: this.selectInteraction?.getFeatures(), // Link modify to the selection
+      features: this.selectInteraction?.getFeatures(), // Link modify to selection
     });
 
+    // Snap
     this.snap = new Snap({ source: this.vectorSource });
 
+    // Select
     this.selectInteraction = new Select({
       condition: click,
       layers: [this.vectorLayer],
-      // *** Use the selection style function from the service ***
-      style: this.olService.createSelectStyleFunction() as StyleLike, // Cast needed sometimes
+      style: this.olService.createSelectStyleFunction() as StyleLike,
     });
 
-    // Add interactions to the map (modify starts inactive)
+    // Add interactions
     this.map.addInteraction(this.draw);
     this.map.addInteraction(this.modify);
     this.map.addInteraction(this.snap);
     this.map.addInteraction(this.selectInteraction);
 
-    // Attach handlers
-    this.draw.on('drawend', this.handleDrawEnd);
-    this.selectInteraction.on('select', this.handleSelect);
+    // Attach listeners and store keys
+    this.drawEndListenerKey = this.draw.on('drawend', this.handleDrawEnd);
+    this.selectListenerKey = this.selectInteraction.on('select', this.handleSelect);
 
-    // Deactivate interactions that shouldn't be active initially
+    // Attach Modify listeners
+    this.modifyStartListenerKey = this.modify.on('modifystart', this.handleModifyStart);
+    this.modifyEndListenerKey = this.modify.on('modifyend', this.handleModifyEnd);
+
     this.draw.setActive(false);
     this.modify.setActive(false);
     this.snap.setActive(false);
-    // Select and DragPan will be handled by setInteractionState('select') in ngAfterViewInit
+    this.selectInteraction.setActive(false);
   }
 
-  setInteractionState(mode: 'select' | 'draw' | 'edit' | 'none') {
+  setInteractionState(mode: 'select' | 'draw' | 'edit-geometry' | 'none') {
     console.log(`Setting interaction state to: ${mode}`);
 
-    // Deactivate all managed interactions first
     this.draw?.setActive(false);
     this.modify?.setActive(false);
     this.selectInteraction?.setActive(false);
@@ -213,96 +232,89 @@ export class OpenMapComponent implements AfterViewInit, OnDestroy {
       case 'draw':
         this.draw?.setActive(true);
         this.snap?.setActive(true);
-        // Pan usually disabled during draw
         break;
 
-      case 'edit': // 'edit' now means MODIFY GEOMETRY (not properties dialog)
-         if (this.selectedFeature) {
-             this.modify?.setActive(true); // Activate geometry modification
-             this.snap?.setActive(true);
-             // Keep select active to allow changing selection? Maybe not ideal during modify.
-             // this.selectInteraction?.setActive(true);
-             // Pan usually disabled during vertex editing
-         } else {
-             console.warn("Attempted to enter modify mode without a selected feature.");
-             this.setInteractionState('select'); // Fallback
-             this.selectedButton = 'select';
-         }
+      case 'edit-geometry':
+        if (this.selectedFeature) {
+          this.modify?.setActive(true);
+          this.snap?.setActive(true);
+        } else {
+          console.warn("Attempted to enter modify mode without a selected feature.");
+          this.selectedButton = 'select';
+          this.setInteractionState('select');
+        }
         break;
 
-      case 'none': // A neutral state, usually just panning enabled
+      case 'none':
         this.dragPanInteraction?.setActive(true);
         break;
     }
+    this.updateButtonVisibility();
   }
 
-    // --- Dialog Opener Function ---
-    async openGeometryDialog(feature: Feature<Geometry>, mode: 'create' | 'edit'): Promise<boolean> {
-      const dialogData: GeometryDialogData = {
-          mode: mode,
-          featureProperties: mode === 'edit' ? feature.getProperties() : {}
+  updateButtonVisibility() {
+    this.showCreateButton = this.selectedButton === 'select' && !this.selectedFeature;
+    this.showEditDeleteButtons = !!this.selectedFeature && this.selectedButton !== 'create';
+    this.cdr.detectChanges();
+  }
+
+  async openGeometryDialog(feature: Feature<Geometry>, mode: 'create' | 'edit'): Promise<boolean> {
+    const dialogData: GeometryDialogData = {
+      mode: mode,
+      featureProperties: feature.getProperties()
+    };
+
+    const dialogRef = this.dialog.open<GeometryDialogComponent, GeometryDialogData, GeometryDialogResult>(
+      GeometryDialogComponent, { width: '350px', disableClose: true, data: dialogData }
+    );
+
+    const result = await dialogRef.afterClosed().toPromise();
+
+    if (result) {
+      console.log('Dialog result:', result);
+      const propertiesToSet: { [key: string]: any } = {
+        ...feature.getProperties(),
+        name: result.name,
+        color: result.color,
+        description: feature.get('description') || 'User feature',
+        createdAt: feature.get('createdAt') || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       };
-
-      const dialogRef = this.dialog.open<GeometryDialogComponent, GeometryDialogData, GeometryDialogResult>(
-          GeometryDialogComponent,
-          {
-              width: '350px',
-              disableClose: true,
-              data: dialogData
-          }
-      );
-
-      const result = await dialogRef.afterClosed().toPromise();
-
-      if (result) {
-          console.log('Dialog result:', result);
-
-          // Define properties object with potential geometryType included from the start
-          const propertiesToSet: { [key: string]: any } = { // Use index signature for flexibility
-              ...feature.getProperties(), // Keep existing properties
-              name: result.name,
-              color: result.color,
-              description: feature.get('description') || 'User feature',
-              createdAt: feature.get('createdAt') || new Date().toISOString(),
-              updatedAt: new Date().toISOString()
-          };
-
-          // Add geometryType specifically for 'create' mode
-          if (mode === 'create') {
-              // Now assigning to a [key: string]: any object is safe
-              propertiesToSet['geometryType'] = this.geometryType;
-          }
-
-          feature.setProperties(propertiesToSet);
-          console.log('Feature properties updated:', feature.getProperties());
-          return true;
-      } else {
-          console.log('Dialog cancelled or closed without saving.');
-          return false;
+      if (mode === 'create') {
+        propertiesToSet['geometryType'] = this.geometryType;
       }
+      feature.setProperties(propertiesToSet);
+      console.log('Feature properties updated:', feature.getProperties());
+      this.hasModifiedGeometry = false;
+      return true;
+    } else {
+      console.log('Dialog cancelled or closed without saving.');
+      return false;
+    }
   }
 
   onGeometryTypeChange(event: MatButtonToggleChange) {
+    if (this.selectedButton !== 'create') return;
+
     this.geometryType = event.value;
 
     if (this.map && this.draw) {
-        this.map.removeInteraction(this.draw);
-        this.draw.un('drawend', this.handleDrawEnd); // Unbind from OLD
+      this.map.removeInteraction(this.draw);
+      if (this.drawEndListenerKey) {
+        unByKey(this.drawEndListenerKey);
+        this.drawEndListenerKey = null;
+      }
 
-        this.draw = new Draw({
-            source: this.vectorSource,
-            type: this.geometryType,
-            stopClick: true
-        });
+      this.draw = new Draw({
+        source: this.vectorSource,
+        type: this.geometryType,
+        stopClick: true
+      });
 
-        this.draw.on('drawend', this.handleDrawEnd); // Bind to NEW
-        this.map.addInteraction(this.draw);
-
-        if (this.selectedButton === 'create') {
-            this.setInteractionState('draw'); // Activate the new draw interaction
-        } else {
-            this.draw.setActive(false); // Keep inactive if not in create mode
-        }
+      this.drawEndListenerKey = this.draw.on('drawend', this.handleDrawEnd);
+      this.map.addInteraction(this.draw);
+      this.draw.setActive(true);
+      this.snap?.setActive(true);
     }
   }
 
@@ -310,104 +322,95 @@ export class OpenMapComponent implements AfterViewInit, OnDestroy {
     this.selectedButton = 'create';
     this.selectedFeature = null;
     this.selectInteraction?.getFeatures().clear();
-    this.showCreateButton = true; // Decide on desired UX here
-    this.showEditDeleteButtons = false;
-    this.setInteractionState('draw'); // Activate drawing
+    this.setInteractionState('draw');
   }
 
-  // --- EDIT BUTTON CLICK ---
-  // Now triggers the dialog for properties, not geometry modification directly
+
   async onEdit() {
-    if (this.selectedFeature) {
-      // Current mode is 'select', keep it that way while dialog is open
-      // Store current selected button to revert if needed, though 'select' is likely fine
-      const previousButton = this.selectedButton;
-      this.selectedButton = 'select'; // Ensure we are in select mode logically
-      this.setInteractionState('none'); // Deactivate interactions while dialog is open
+    if (this.selectedButton === 'select' && this.selectedFeature) {
+      // ---- STAGE 1: Enter Geometry Modification ----
+      this.selectedButton = 'edit-geometry';
+      this.setInteractionState('edit-geometry');
+      this.hasModifiedGeometry = false;
 
-      const updated = await this.openGeometryDialog(this.selectedFeature, 'edit');
+      console.log("Entered geometry edit mode. Modify the shape and click 'Finish Shape'.");
+    }
+    else if (this.selectedButton === 'edit-geometry' && this.selectedFeature) {
+      // ---- STAGE 2: Finish Geometry Modification & Open Dialog ----
+      console.log("Finishing geometry edit mode.");
+      this.setInteractionState('none');
 
-      if (updated) {
-         console.log("Properties updated successfully.");
-         // Optional: Briefly highlight the feature?
+      // Open the properties dialog
+      const propertiesUpdated = await this.openGeometryDialog(this.selectedFeature, 'edit');
+
+      if (propertiesUpdated) {
+        console.log("Properties updated successfully after geometry modification.");
       } else {
-          console.log("Edit cancelled.");
+        console.log("Properties dialog cancelled after geometry modification.");
       }
-      // Restore select state after dialog closes
+
+      // --- Always return to select mode after dialog ---
       this.selectedButton = 'select';
       this.setInteractionState('select');
-      // Re-evaluate button visibility based on selection state
-      this.showEditDeleteButtons = !!this.selectedFeature;
-      this.showCreateButton = !this.selectedFeature;
-
+      if (!this.selectInteraction.getFeatures().getArray().includes(this.selectedFeature)) {
+        this.selectInteraction.getFeatures().push(this.selectedFeature);
+      }
+      this.updateButtonVisibility();
 
     } else {
-      alert("Nenhuma geometria selecionada para editar.");
-       // Ensure state is consistent
+      alert("Cannot edit. Please select a feature first.");
       this.selectedButton = 'select';
       this.setInteractionState('select');
-      this.showEditDeleteButtons = false;
-      this.showCreateButton = true;
+      this.updateButtonVisibility();
     }
   }
 
 
   onDelete() {
-    if (this.selectedFeature) {
-      // Maybe add a confirmation dialog here?
-      // e.g., using MatDialog or window.confirm()
+    if (this.selectedButton !== 'select' || !this.selectedFeature) {
+      alert('Por favor, selecione uma geometria para deletar.');
+      return;
+    }
 
-      const featureToDelete = this.selectedFeature;
-      try {
-          this.vectorSource.removeFeature(featureToDelete);
-          console.log('Feature removed from source');
+    if (!window.confirm(`Tem certeza que deseja deletar a geometria "${this.selectedFeature.get('name') || 'sem nome'}"?`)) {
+      return;
+    }
 
-          this.selectedFeature = null;
-          this.selectInteraction?.getFeatures().clear(); // Clear visual selection explicitly
+    const featureToDelete = this.selectedFeature;
+    try {
+      this.vectorSource.removeFeature(featureToDelete);
+      console.log('Feature removed from source');
 
-          this.showEditDeleteButtons = false;
-          this.showCreateButton = true;
-          this.selectedButton = 'select';
-          this.setInteractionState('select'); // Ensure select interaction is active
-          console.log('Feature deleted');
-      } catch (error) {
-           console.error("Error removing feature:", error);
-           alert("Erro ao deletar a geometria.");
-           // Reset state even on error
-           this.selectedFeature = null;
-           this.selectInteraction?.getFeatures().clear();
-           this.showEditDeleteButtons = false;
-           this.showCreateButton = true;
-           this.selectedButton = 'select';
-           this.setInteractionState('select');
-      }
-    } else {
-      alert('Nenhuma geometria selecionada para deletar.');
+      this.selectedFeature = null;
+      this.selectInteraction?.getFeatures().clear();
+
+      this.selectedButton = 'select';
+      this.setInteractionState('select');
+      console.log('Feature deleted');
+
+    } catch (error) {
+      console.error("Error removing feature:", error);
+      alert("Erro ao deletar a geometria.");
+      this.selectedFeature = null;
+      this.selectInteraction?.getFeatures().clear();
       this.selectedButton = 'select';
       this.setInteractionState('select');
     }
   }
 
   onSelect() {
-    this.selectedButton = 'select';
-    // Buttons visibility depends on whether a feature is selected
-    this.showCreateButton = !this.selectedFeature;
-    this.showEditDeleteButtons = !!this.selectedFeature;
-    this.setInteractionState('select');
-  }
+    if (this.selectedButton === 'edit-geometry') {
+      console.log("Cancelling geometry edit mode.");
+      this.selectedButton = 'select';
+      this.setInteractionState('select');
+      this.updateButtonVisibility();
 
-  // --- Optional: Add a button/method to activate geometry modification ---
-  onModifyGeometry() {
-      if (this.selectedFeature) {
-          this.selectedButton = 'edit'; // Use 'edit' state for geometry modification
-          this.showCreateButton = false;
-          this.showEditDeleteButtons = true; // Keep edit/delete visible? Or maybe just a 'Finish Editing' button?
-          this.setInteractionState('edit'); // Activate Modify interaction
-          console.log("Modify geometry mode activated.");
-          // You might want a 'Finish Editing' button that calls onSelect() or setInteractionState('select')
-      } else {
-          alert("Selecione uma geometria para modificar seus vértices.");
-      }
+    } else if (this.selectedButton !== 'select') {
+      this.selectedButton = 'select';
+      this.setInteractionState('select');
+      this.updateButtonVisibility();
+    }
+
   }
 
 }
