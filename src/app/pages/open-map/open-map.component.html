@@ -23,8 +23,7 @@
         <span>Criar</span>
     </button>
 
-    <button mat-raised-button [ngClass]="{'btn-active': selectedButton === 'select'}" (click)="onSelect()"
-        [disabled]="selectActive">
+    <button mat-raised-button [ngClass]="{'btn-active': selectedButton === 'select'}" (click)="onSelect()">
         <mat-icon id="desktop-icon">mouse</mat-icon>
         <mat-icon id="mobile-icon">pan_tool</mat-icon>
         <span>Selecionar</span>
