@@ -3,6 +3,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { OpenStreetMapService } from '../../services/open-street-map.service';
 import { OpenLayerService } from '../../services/open-layer.service';
 import { GeometryDialogComponent, GeometryDialogData, GeometryDialogResult } from '../../components/geometry-dialog/geometry-dialog.component';
+import { DeleteDialogComponent } from '../../components/delete-dialog/delete-dialog.component';
 
 import { Map, Feature } from 'ol';
 import { Geometry } from 'ol/geom';
@@ -366,35 +367,50 @@ export class OpenMapComponent implements AfterViewInit, OnDestroy {
   }
 
 
-  onDelete() {
+  async onDelete() {
     if (this.selectedButton !== 'select' || !this.selectedFeature) {
+      console.warn('Cannot delete: No feature selected or not in select mode.');
       alert('Por favor, selecione uma geometria para deletar.');
       return;
     }
 
-    if (!window.confirm(`Tem certeza que deseja deletar a geometria "${this.selectedFeature.get('name') || 'sem nome'}"?`)) {
-      return;
-    }
-
     const featureToDelete = this.selectedFeature;
-    try {
-      this.vectorSource.removeFeature(featureToDelete);
-      console.log('Feature removed from source');
+    const entityType = "Geometria";
+    const specificName = featureToDelete.get('name') || 'sem nome';
 
-      this.selectedFeature = null;
-      this.selectInteraction?.getFeatures().clear();
+    const dialogRef = this.dialog.open<DeleteDialogComponent, { entityName: string; entitySpecification: string }, boolean>(
+      DeleteDialogComponent,
+      {
+        data: {
+          entityName: entityType,
+          entitySpecification: specificName
+        },
+        disableClose: true
+      }
+    );
 
-      this.selectedButton = 'select';
-      this.setInteractionState('select');
-      console.log('Feature deleted');
+    const confirmed = await dialogRef.afterClosed().toPromise();
 
-    } catch (error) {
-      console.error("Error removing feature:", error);
-      alert("Erro ao deletar a geometria.");
-      this.selectedFeature = null;
-      this.selectInteraction?.getFeatures().clear();
-      this.selectedButton = 'select';
-      this.setInteractionState('select');
+    if (confirmed) {
+      try {
+        this.vectorSource.removeFeature(featureToDelete);
+        console.log(`Feature "${specificName}" removed from source`);
+
+        this.selectedFeature = null;
+        this.selectInteraction?.getFeatures().clear();
+
+        this.updateButtonVisibility();
+        console.log('Feature deleted successfully');
+
+      } catch (error) {
+        console.error("Error removing feature:", error);
+        alert("Erro ao deletar a geometria.");
+        this.selectedFeature = null;
+        this.selectInteraction?.getFeatures().clear();
+        this.updateButtonVisibility();
+      }
+    } else {
+      console.log('Deletion cancelled by user.');
     }
   }
 
